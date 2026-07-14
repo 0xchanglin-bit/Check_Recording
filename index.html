@@ -548,11 +548,12 @@ function saveForm(){
 }
 
 /* ================= 即時鏡頭掃描器 ================= */
-let stream=null, rafId=null, prevGray=null, steady=0, started=0, torchOn=false, busy=false;
+let stream=null, rafId=null, prevGray=null, steady=0, started=0, torchOn=false, busy=false, scanToken=0;
 const SAMPLE_W=96, SAMPLE_H=Math.round(96/2.15);
 const MOTION_MAX=6.5, SHARP_MIN=7.5, STEADY_HITS=7;
 
 async function openScanner(){
+  scanToken++;
   const sc=document.getElementById('scanner'); sc.classList.add('show');
   document.getElementById('scanErr').classList.remove('show');
   document.getElementById('scanBottom').style.display='flex';
@@ -575,6 +576,7 @@ async function openScanner(){
   }
 }
 function closeScanner(){
+  scanToken++; busy=false;
   cancelAnimationFrame(rafId);
   if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
   document.getElementById('scanner').classList.remove('show');
@@ -625,6 +627,7 @@ function loop(){
 
 function capture(){
   if(busy) return; busy=true; haptic();
+  const myToken=scanToken;
   cancelAnimationFrame(rafId);
   const v=document.getElementById('video');
   const max=1500, sc=Math.min(1,max/Math.max(v.videoWidth,v.videoHeight));
@@ -635,6 +638,7 @@ function capture(){
   setStatus('辨識中…', true);
   const b64=cv.toDataURL('image/jpeg',0.85).split(',')[1];
   api('scan',{base64:b64,mediaType:'image/jpeg'}).then(r=>{
+    if(myToken!==scanToken) return;   // 已取消／關閉，忽略這筆結果
     if(r&&!r.error){
       closeScanner();
       const acct=normAcct(r.accountNumber||'');
@@ -651,7 +655,7 @@ function capture(){
       toast(e==='NO_KEY'?'尚未設定辨識金鑰，改用手動輸入':e==='DEMO'?'示範模式，改用手動輸入':'辨識失敗，改用手動輸入');
       closeScanner(); openForm(null);
     }
-  }).catch(()=>{ toast('辨識失敗，改用手動輸入'); closeScanner(); openForm(null); });
+  }).catch(()=>{ if(myToken!==scanToken) return; toast('辨識失敗，改用手動輸入'); closeScanner(); openForm(null); });
 }
 
 document.getElementById('scanClose').onclick=closeScanner;
