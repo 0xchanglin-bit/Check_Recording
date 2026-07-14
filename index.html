@@ -298,6 +298,7 @@ function today(){const d=new Date();return d.getFullYear()+'-'+p2(d.getMonth()+1
 function p2(n){return String(n).padStart(2,'0');}
 function money(n){return (n===''||n==null||isNaN(n))?'—':new Intl.NumberFormat('zh-TW').format(Math.round(Number(n)));}
 function num(s){const n=String(s).replace(/[^0-9.]/g,'');return n===''?'':Number(n);}
+function normAcct(s){return String(s==null?'':s).replace(/[^0-9]/g,'').replace(/^0+/,'');}
 function uid(){return (self.crypto&&crypto.randomUUID)?crypto.randomUUID():'id-'+Date.now()+'-'+Math.random().toString(36).slice(2);}
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 function statusOf(c){ if(c.cashed)return'cashed'; if(!c.dueDate)return'upcoming'; const t=today();
@@ -334,7 +335,7 @@ function checkRowHTML(c){
     +'<button class="tick '+(c.cashed?'on':'')+'" data-tick="'+c.id+'">'+(c.cashed?'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5L20 6"/></svg>':'')+'</button>'
     +'<button class="row-main" data-open="'+c.id+'">'
       +'<div class="row-title">'+esc(c.customerName||'未指定客戶')+'</div>'
-      +'<div class="row-sub">'+esc(c.bank)+(c.branch?' · '+esc(c.branch):'')+' · 票號 '+esc(c.checkNumber||'—')+'</div>'
+      +'<div class="row-sub">'+esc(c.bank)+(c.branch?' · '+esc(c.branch):'')+' · 票號 '+esc(c.checkNumber||'—')+(c.checkType==='third'?' · <span style="color:var(--indigo);font-weight:700">客票</span>':'')+'</div>'
       +'<div class="row-sub mono">帳號 '+esc(c.accountNumber||'—')+' · 到期 '+esc(c.dueDate||'—')+'</div>'
     +'</button>'
     +'<div style="text-align:right"><div class="amt mono">'+money(c.amount)+'</div>'
@@ -412,7 +413,7 @@ function openForm(id, prefill){
   const init=id?S.checks.find(c=>c.id===id):null;
   formState = init ? clone(init) : Object.assign({
     id:uid(),bank:'',branch:'',accountNumber:'',checkNumber:'',dueDate:'',amount:'',
-    receivedDate:today(),customerName:'',cashed:false,createdAt:''
+    receivedDate:today(),customerName:'',cashed:false,createdAt:'',checkType:'own',drawer:''
   }, prefill||{});
   renderForm(!!init);
   document.getElementById('backdrop').classList.add('show');
@@ -420,18 +421,45 @@ function openForm(id, prefill){
 }
 function closeForm(){ document.getElementById('backdrop').classList.remove('show'); document.getElementById('sheet').classList.remove('show'); }
 document.getElementById('backdrop').addEventListener('click',closeForm);
+let formIsEdit=false;
+function nameSuggestions(){
+  const names=new Set();
+  Object.values(S.customers).forEach(c=>{ if(c.name) names.add(c.name); });
+  S.checks.forEach(c=>{ if(c.customerName) names.add(c.customerName); });
+  return '<datalist id="custNames">'+[...names].map(n=>'<option value="'+esc(n)+'">').join('')+'</datalist>';
+}
+function collectForm(){
+  formState.accountNumber=val('i_acct'); formState.customerName=val('i_cust'); formState.bank=val('i_bank');
+  formState.branch=val('i_branch'); formState.checkNumber=val('i_cno'); formState.amount=num(val('i_amt'));
+  formState.dueDate=val('i_due'); formState.receivedDate=val('i_recv');
+  const cb=document.getElementById('i_cashed'); if(cb) formState.cashed=cb.checked;
+  const dr=document.getElementById('i_drawer'); if(dr) formState.drawer=dr.value;
+}
 function renderForm(isEdit){
-  const f=formState, known=f.accountNumber&&S.customers[f.accountNumber];
-  const hint = f.accountNumber ? (known
-    ? '<div class="hint" style="color:var(--green)">● 既有客戶：'+esc(S.customers[f.accountNumber].name)+'</div>'
-    : '<div class="hint" style="color:var(--orange)">● 新帳號，儲存後將建立新客戶</div>') : '<div class="hint"></div>';
+  formIsEdit=isEdit;
+  const f=formState; const type=f.checkType==='third'?'third':(f.checkType='own','own');
+  const isThird=type==='third';
+  const known=!isThird && f.accountNumber && S.customers[normAcct(f.accountNumber)];
+  const custLabel=isThird?'交票客戶':'客戶名稱';
+  let hint;
+  if(isThird) hint='<div class="hint" style="color:var(--label2)">客票：此帳號屬票主，不會存成客戶。「交票客戶」請填把票交給你的人。</div>';
+  else if(f.accountNumber) hint = known
+    ? '<div class="hint" style="color:var(--green)">● 既有客戶：'+esc(S.customers[normAcct(f.accountNumber)].name)+'</div>'
+    : '<div class="hint" style="color:var(--orange)">● 新帳號，儲存後將建立新客戶</div>';
+  else hint='<div class="hint"></div>';
+
   document.getElementById('sheetContent').innerHTML='<div class="grabber"></div>'
     +'<div class="sheet-hd"><button class="link-btn" id="cancelBtn">取消</button><h2>'+(isEdit?'編輯支票':'核對支票')+'</h2><button class="link-btn bold" id="saveBtn">儲存</button></div>'
     +'<div class="sheet-body">'
+      +'<div class="seg" style="margin:6px 16px 0">'
+        +'<button class="'+(!isThird?'on':'')+'" data-ctype="own">自票（客戶本人）</button>'
+        +'<button class="'+(isThird?'on':'')+'" data-ctype="third">客票（客戶轉交）</button>'
+      +'</div>'
       +'<div class="flabel">客戶</div><div class="card">'
-        +'<div class="field"><label>帳號</label><input id="i_acct" class="mono" placeholder="付款人帳號" value="'+esc(f.accountNumber)+'"></div>'
-        +'<div class="field"><label>客戶名稱</label><input id="i_cust" placeholder="'+(known?'':'新客戶名稱')+'" value="'+esc(f.customerName)+'"></div>'
-      +'</div>'+hint
+        +'<div class="field"><label>帳號</label><input id="i_acct" class="mono" placeholder="'+(isThird?'票主帳號（-與開頭0會自動去除）':'付款人帳號')+'" value="'+esc(f.accountNumber)+'"></div>'
+        +'<div class="field"><label>'+custLabel+'</label><input id="i_cust" list="custNames" placeholder="'+(known?'':(isThird?'交票給你的客戶':'新客戶名稱'))+'" value="'+esc(f.customerName)+'"></div>'
+        +(isThird?'<div class="field"><label>票主</label><input id="i_drawer" placeholder="開票人（可留空）" value="'+esc(f.drawer||'')+'"></div>':'')
+      +'</div>'+hint+nameSuggestions()
       +'<div class="flabel">支票資料</div><div class="card">'
         +'<div class="field"><label>銀行</label><input id="i_bank" placeholder="如 合作金庫" value="'+esc(f.bank)+'"></div>'
         +'<div class="field"><label>分行</label><input id="i_branch" placeholder="如 鹿港分行" value="'+esc(f.branch)+'"></div>'
@@ -445,21 +473,25 @@ function renderForm(isEdit){
       +'<div class="card" style="margin-top:16px"><div class="switch-row"><span>已兌現 / 已入帳</span><label class="switch"><input type="checkbox" id="i_cashed" '+(f.cashed?'checked':'')+'><span class="slider"></span></label></div></div>'
       +(isEdit?'<div class="danger"><button id="delBtn">刪除支票</button></div>':'')
     +'</div>';
+
   document.getElementById('cancelBtn').onclick=closeForm;
   document.getElementById('saveBtn').onclick=saveForm;
+  document.querySelectorAll('[data-ctype]').forEach(b=>b.onclick=()=>{ collectForm(); formState.checkType=b.dataset.ctype; renderForm(formIsEdit); });
   if(isEdit) document.getElementById('delBtn').onclick=()=>{ if(confirm('確定刪除這張支票？')) api('deleteCheck',{id:formState.id}).then(d=>{refresh(d);closeForm();}); };
   document.getElementById('i_acct').oninput=e=>{
-    formState.accountNumber=e.target.value; const k=S.customers[formState.accountNumber];
-    if(k){document.getElementById('i_cust').value=k.name||'';}
+    formState.accountNumber=e.target.value;
+    if(formState.checkType==='third') return;
+    const k=S.customers[normAcct(formState.accountNumber)];
+    if(k){ document.getElementById('i_cust').value=k.name||''; }
     const h=document.querySelector('.hint'); const acc=formState.accountNumber;
     if(h){ h.textContent=acc?(k?'● 既有客戶：'+(k.name||''):'● 新帳號，儲存後將建立新客戶'):''; h.style.color=k?'var(--green)':'var(--orange)'; }
   };
 }
 function val(id){const e=document.getElementById(id);return e?e.value:'';}
 function saveForm(){
-  formState.accountNumber=val('i_acct'); formState.customerName=val('i_cust'); formState.bank=val('i_bank');
-  formState.branch=val('i_branch'); formState.checkNumber=val('i_cno'); formState.amount=num(val('i_amt'));
-  formState.dueDate=val('i_due'); formState.receivedDate=val('i_recv'); formState.cashed=document.getElementById('i_cashed').checked;
+  collectForm();
+  formState.accountNumber=normAcct(formState.accountNumber);
+  if(formState.checkType!=='third') formState.drawer='';
   if(formState.amount===''||!formState.dueDate){ toast('金額與到期日為必填'); return; }
   const btn=document.getElementById('saveBtn'); btn.disabled=true; btn.textContent='儲存中';
   api('saveCheck',{check:formState}).then(d=>{ refresh(d); closeForm(); toast('已儲存'); })
@@ -556,10 +588,12 @@ function capture(){
   api('scan',{base64:b64,mediaType:'image/jpeg'}).then(r=>{
     if(r&&!r.error){
       closeScanner();
+      const acct=normAcct(r.accountNumber||'');
       openForm(null, {
-        bank:r.bank||'', branch:r.branch||'', accountNumber:r.accountNumber||'',
+        bank:r.bank||'', branch:r.branch||'', accountNumber:acct,
         checkNumber:r.checkNumber||'', dueDate:r.dueDate||'', amount:r.amount!==''?r.amount:'',
-        customerName:(S.customers[r.accountNumber]||{}).name||''
+        checkType:'own', drawer:'',
+        customerName:(S.customers[acct]||{}).name||''
       });
       toast('已帶入，請核對');
     }else{
