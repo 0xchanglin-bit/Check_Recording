@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="支票日曆">
+<meta name="theme-color" content="#0B0B0F">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="favicon-32.png">
+<title>支票日曆</title>
+<style>
+:root{
+  --bg:#EEF0F5; --card:rgba(255,255,255,.86); --card2:rgba(255,255,255,.7);
+  --label:#0A0A0A; --label2:rgba(60,60,67,.6); --label3:rgba(60,60,67,.3);
+  --sep:rgba(60,60,67,.2);
+  --blue:#0A84FF; --green:#34C759; --red:#FF3B30; --orange:#FF9500; --indigo:#5E5CE6;
+  --fill:rgba(120,120,128,.14); --fill2:rgba(120,120,128,.22);
+  --glass-bg:rgba(255,255,255,.5); --glass-border:rgba(255,255,255,.65); --glass-hi:rgba(255,255,255,.7);
+  --glass-shadow:0 10px 40px rgba(30,40,80,.16);
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#0B0B0F; --card:rgba(30,30,34,.82); --card2:rgba(40,40,45,.7);
+    --label:#fff; --label2:rgba(235,235,245,.6); --label3:rgba(235,235,245,.3);
+    --sep:rgba(120,120,128,.4);
+    --fill:rgba(120,120,128,.24); --fill2:rgba(120,120,128,.38);
+    --glass-bg:rgba(34,34,40,.52); --glass-border:rgba(255,255,255,.14); --glass-hi:rgba(255,255,255,.16);
+    --glass-shadow:0 10px 40px rgba(0,0,0,.5);
+  }
+}
+*{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html,body{ margin:0; height:100%; }
+body{
+  background:var(--bg); color:var(--label);
+  font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','SF Pro Display','Helvetica Neue','Noto Sans TC',sans-serif;
+  font-size:17px; line-height:1.35; -webkit-font-smoothing:antialiased;
+  padding-bottom:calc(150px + env(safe-area-inset-bottom));
+}
+body::before{ content:''; position:fixed; inset:0; z-index:-1; pointer-events:none;
+  background:
+    radial-gradient(38% 28% at 10% 6%, rgba(10,132,255,.20), transparent 70%),
+    radial-gradient(42% 32% at 92% 10%, rgba(94,92,230,.18), transparent 72%),
+    radial-gradient(48% 40% at 85% 96%, rgba(52,199,89,.14), transparent 72%),
+    radial-gradient(46% 42% at 6% 94%, rgba(255,149,0,.12), transparent 72%);
+}
+button{ font-family:inherit; cursor:pointer; color:inherit; }
+.mono{ font-variant-numeric:tabular-nums; font-feature-settings:'tnum'; }
+.hidden{ display:none !important; }
+
+.glass{
+  background:var(--glass-bg);
+  -webkit-backdrop-filter:blur(30px) saturate(180%); backdrop-filter:blur(30px) saturate(180%);
+  border:.5px solid var(--glass-border);
+  box-shadow:inset 0 1px 0 var(--glass-hi), var(--glass-shadow);
+}
+
+/* Nav */
+.nav{ position:sticky; top:0; z-index:20; padding-top:env(safe-area-inset-top); }
+.nav-inner{ background:var(--glass-bg); -webkit-backdrop-filter:blur(24px) saturate(180%); backdrop-filter:blur(24px) saturate(180%);
+  border-bottom:.5px solid var(--sep); }
+.nav-row{ display:flex; align-items:center; justify-content:flex-end; height:44px; padding:0 12px; }
+.nav-title{ font-size:34px; font-weight:800; letter-spacing:.4px; padding:0 20px 10px; }
+.icon-btn{ width:38px; height:38px; border-radius:50%; border:none; display:grid; place-items:center;
+  background:var(--fill); }
+
+main{ max-width:620px; margin:0 auto; padding:6px 0 20px; }
+
+.section-hd{ font-size:13px; color:var(--label2); padding:18px 30px 8px; }
+.card{ background:var(--card); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
+  margin:0 16px; border-radius:20px; overflow:hidden; box-shadow:0 4px 18px rgba(30,40,80,.06); }
+.row{ display:flex; align-items:center; gap:12px; padding:12px 16px; position:relative; }
+.row + .row::before{ content:''; position:absolute; left:16px; right:0; top:0; height:.5px; background:var(--sep); }
+.row-main{ flex:1; min-width:0; text-align:left; background:none; border:none; padding:0; }
+.row-title{ font-size:16px; font-weight:600; }
+.row-sub{ font-size:12.5px; color:var(--label2); margin-top:2px; }
+.amt{ font-size:17px; font-weight:650; white-space:nowrap; }
+.badge{ font-size:11.5px; font-weight:650; padding:2px 9px; border-radius:20px; white-space:nowrap; display:inline-block; }
+.tick{ width:27px; height:27px; border-radius:50%; border:1.6px solid var(--label3); display:grid; place-items:center;
+  flex-shrink:0; background:transparent; }
+.tick.on{ background:var(--green); border-color:var(--green); }
+
+/* segmented */
+.seg{ display:flex; background:var(--fill); border-radius:11px; padding:2px; margin:0 16px; }
+.seg button{ flex:1; border:none; background:transparent; font-size:13px; font-weight:600; padding:7px 4px; border-radius:9px; color:var(--label); }
+.seg button.on{ background:var(--card2); box-shadow:0 1px 4px rgba(0,0,0,.14); }
+
+/* calendar */
+.cal{ background:var(--card); margin:12px 16px; border-radius:22px; padding:12px 10px 8px; box-shadow:0 4px 18px rgba(30,40,80,.06); }
+.cal-hd{ display:flex; align-items:center; justify-content:space-between; padding:2px 8px 12px; }
+.cal-month{ font-size:19px; font-weight:750; }
+.cal-nav{ background:none; border:none; color:var(--blue); padding:6px 12px; font-size:24px; line-height:1; }
+.dow{ display:grid; grid-template-columns:repeat(7,1fr); }
+.dow span{ text-align:center; font-size:11px; color:var(--label2); font-weight:600; padding-bottom:6px; }
+.grid{ display:grid; grid-template-columns:repeat(7,1fr); }
+.cell{ aspect-ratio:1/1.18; border:none; background:none; padding:1px; display:flex; flex-direction:column; align-items:center; gap:2px; }
+.cell .dnum{ width:30px; height:30px; display:grid; place-items:center; border-radius:50%; font-size:15px; font-weight:500; }
+.cell.today .dnum{ color:var(--blue); font-weight:750; }
+.cell.sel .dnum{ background:var(--blue); color:#fff; font-weight:650; box-shadow:0 3px 10px rgba(10,132,255,.45); }
+.cell .dot{ width:6px; height:6px; border-radius:50%; }
+.cell .csum{ font-size:9px; font-weight:700; line-height:1; }
+
+/* bottom floating controls */
+.dock{ position:fixed; left:0; right:0; bottom:0; z-index:30; display:flex; flex-direction:column; align-items:center;
+  gap:12px; padding:0 16px calc(12px + env(safe-area-inset-bottom)); pointer-events:none; }
+.scan-fab{ pointer-events:auto; display:inline-flex; align-items:center; gap:9px; border:none;
+  padding:15px 26px; border-radius:30px; font-size:17px; font-weight:700; color:#fff;
+  background:linear-gradient(180deg,#2A94FF,#0A6EF0);
+  box-shadow:0 10px 30px rgba(10,110,240,.5), inset 0 1px 0 rgba(255,255,255,.5); }
+.scan-fab:active{ transform:scale(.97); }
+.tabbar{ pointer-events:auto; display:flex; gap:4px; padding:6px; border-radius:26px; }
+.tab{ border:none; background:none; padding:6px 20px; display:flex; flex-direction:column; align-items:center; gap:3px;
+  color:var(--label2); font-size:10.5px; font-weight:600; border-radius:20px; }
+.tab.on{ color:var(--blue); }
+.tab.on .ti{ background:var(--fill); }
+.tab .ti{ width:34px; height:30px; border-radius:16px; display:grid; place-items:center; }
+.tab svg{ width:25px; height:25px; }
+
+.empty{ text-align:center; color:var(--label2); font-size:15px; padding:44px 24px; }
+.totalbar{ text-align:right; font-size:13px; color:var(--label2); padding:10px 30px 0; }
+.searchwrap{ margin:10px 16px; position:relative; }
+.searchwrap input{ width:100%; border:none; background:var(--fill); border-radius:12px; padding:10px 12px 10px 36px; font-size:16px; color:var(--label); outline:none; }
+.searchwrap svg{ position:absolute; left:11px; top:11px; color:var(--label2); }
+
+/* sheet */
+.backdrop{ position:fixed; inset:0; background:rgba(0,0,0,.42); opacity:0; pointer-events:none; transition:opacity .3s; z-index:40; }
+.backdrop.show{ opacity:1; pointer-events:auto; }
+.sheet{ position:fixed; left:0; right:0; bottom:0; z-index:45; max-height:94vh; display:flex; flex-direction:column;
+  border-radius:26px 26px 0 0; background:var(--bg);
+  transform:translateY(102%); transition:transform .38s cubic-bezier(.32,.72,0,1); }
+.sheet.show{ transform:translateY(0); }
+.grabber{ width:38px; height:5px; background:var(--label3); border-radius:3px; margin:9px auto 2px; }
+.sheet-hd{ display:flex; align-items:center; justify-content:space-between; padding:8px 16px 12px; }
+.sheet-hd h2{ font-size:17px; font-weight:750; margin:0; }
+.link-btn{ background:none; border:none; color:var(--blue); font-size:17px; padding:6px 4px; }
+.link-btn.bold{ font-weight:700; }
+.link-btn:disabled{ color:var(--label3); }
+.sheet-body{ overflow-y:auto; padding:4px 0 calc(28px + env(safe-area-inset-bottom)); -webkit-overflow-scrolling:touch; }
+
+.flabel{ font-size:13px; color:var(--label2); padding:18px 30px 8px; }
+.field{ display:flex; align-items:center; gap:10px; padding:12px 16px; position:relative; }
+.field + .field::before{ content:''; position:absolute; left:16px; right:0; top:0; height:.5px; background:var(--sep); }
+.field label{ font-size:16px; min-width:92px; }
+.field input{ flex:1; border:none; background:transparent; color:var(--label); font-size:16px; text-align:right; outline:none; min-width:0; }
+.field input::placeholder{ color:var(--label3); }
+.hint{ font-size:12.5px; padding:8px 30px 0; }
+.switch-row{ display:flex; align-items:center; justify-content:space-between; padding:13px 16px; }
+.switch{ position:relative; width:51px; height:31px; flex-shrink:0; }
+.switch input{ opacity:0; width:0; height:0; }
+.slider{ position:absolute; inset:0; background:var(--fill2); border-radius:31px; transition:.22s; }
+.slider::before{ content:''; position:absolute; width:27px; height:27px; left:2px; top:2px; background:#fff; border-radius:50%; transition:.22s; box-shadow:0 1px 3px rgba(0,0,0,.3); }
+.switch input:checked + .slider{ background:var(--green); }
+.switch input:checked + .slider::before{ transform:translateX(20px); }
+.danger{ margin:22px 16px 0; background:var(--card); border-radius:18px; }
+.danger button{ width:100%; background:none; border:none; color:var(--red); font-size:16px; padding:14px; font-weight:600; }
+
+/* scanner */
+.scanner{ position:fixed; inset:0; z-index:80; background:#000; display:none; flex-direction:column; }
+.scanner.show{ display:flex; }
+.scanner video, .scanner .freeze{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+.scan-mask{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
+.aperture{ width:88vw; max-width:520px; aspect-ratio:2.15/1; border-radius:18px;
+  box-shadow:0 0 0 100vmax rgba(0,0,0,.5); position:relative; transition:box-shadow .2s; }
+.aperture.lock{ box-shadow:0 0 0 100vmax rgba(0,0,0,.32); }
+.corner{ position:absolute; width:30px; height:30px; border:3px solid #fff; transition:border-color .2s; }
+.aperture.lock .corner{ border-color:var(--green); }
+.corner.tl{ top:-2px; left:-2px; border-right:none; border-bottom:none; border-radius:16px 0 0 0; }
+.corner.tr{ top:-2px; right:-2px; border-left:none; border-bottom:none; border-radius:0 16px 0 0; }
+.corner.bl{ bottom:-2px; left:-2px; border-right:none; border-top:none; border-radius:0 0 0 16px; }
+.corner.br{ bottom:-2px; right:-2px; border-left:none; border-top:none; border-radius:0 0 16px 0; }
+.scan-top{ position:absolute; top:0; left:0; right:0; display:flex; align-items:center; justify-content:space-between;
+  padding:calc(env(safe-area-inset-top) + 8px) 14px 12px; z-index:2; }
+.scan-top .title{ color:#fff; font-size:17px; font-weight:700; text-shadow:0 1px 4px rgba(0,0,0,.5); }
+.round-glass{ width:40px; height:40px; border-radius:50%; border:none; display:grid; place-items:center; color:#fff;
+  background:rgba(255,255,255,.16); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); }
+.scan-bottom{ position:absolute; bottom:0; left:0; right:0; z-index:2; display:flex; flex-direction:column; align-items:center;
+  gap:16px; padding:0 20px calc(env(safe-area-inset-bottom) + 26px); }
+.status-pill{ color:#fff; font-size:14.5px; font-weight:600; padding:9px 18px; border-radius:22px;
+  background:rgba(0,0,0,.45); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); display:inline-flex; align-items:center; gap:8px; }
+.shutter{ width:74px; height:74px; border-radius:50%; border:5px solid rgba(255,255,255,.9); background:rgba(255,255,255,.25); }
+.shutter:active{ transform:scale(.94); }
+.scan-manual{ color:#fff; opacity:.85; font-size:15px; background:none; border:none; text-decoration:underline; }
+.scan-err{ position:absolute; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center; gap:16px;
+  color:#fff; text-align:center; padding:30px; z-index:3; }
+.scan-err.show{ display:flex; }
+
+.spinner{ width:20px; height:20px; border:2.5px solid rgba(255,255,255,.35); border-top-color:#fff; border-radius:50%;
+  animation:spin .8s linear infinite; display:inline-block; }
+.spinner.dark{ border-color:var(--label3); border-top-color:var(--blue); }
+@keyframes spin{ to{ transform:rotate(360deg);} }
+.pulse{ animation:pulse 1.4s ease-in-out infinite; }
+@keyframes pulse{ 0%,100%{ opacity:1;} 50%{ opacity:.55;} }
+@media (prefers-reduced-motion:reduce){ *{ transition:none!important; animation:none!important; } }
+
+.toast{ position:fixed; left:50%; bottom:calc(170px + env(safe-area-inset-bottom)); transform:translateX(-50%);
+  color:#fff; font-size:14px; padding:11px 18px; border-radius:22px; z-index:90; opacity:0; transition:opacity .25s;
+  pointer-events:none; max-width:82%; text-align:center; background:rgba(20,20,24,.92);
+  -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); }
+.toast.show{ opacity:1; }
+.setup-warn{ margin:14px 16px 0; padding:12px 16px; border-radius:16px; font-size:13px; color:var(--label2);
+  background:var(--fill); }
+</style>
+</head>
+<body>
+
+<div class="nav"><div class="nav-inner">
+  <div class="nav-row">
+    <button class="icon-btn" id="addBtn" aria-label="手動新增">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+  </div>
+  <div class="nav-title" id="navTitle">日曆</div>
+</div></div>
+
+<main id="view"><div class="empty"><span class="spinner dark"></span></div></main>
+
+<div class="dock">
+  <button class="scan-fab" id="scanFab">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8V6a2 2 0 0 1 2-2h2M17 4h2a2 2 0 0 1 2 2v2M21 16v2a2 2 0 0 1-2 2h-2M7 20H5a2 2 0 0 1-2-2v-2"/><path d="M3 12h18"/></svg>
+    掃描支票
+  </button>
+  <nav class="tabbar glass">
+    <button class="tab on" data-tab="calendar"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4.5" width="18" height="16" rx="4"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg></span>日曆</button>
+    <button class="tab" data-tab="list"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg></span>清單</button>
+    <button class="tab" data-tab="customers"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg></span>客戶</button>
+  </nav>
+</div>
+
+<div class="backdrop" id="backdrop"></div>
+<div class="sheet" id="sheet"><div id="sheetContent"></div></div>
+<div class="toast" id="toast"></div>
+
+<!-- 全螢幕掃描器 -->
+<div class="scanner" id="scanner">
+  <video id="video" playsinline muted autoplay></video>
+  <canvas id="freeze" class="freeze hidden"></canvas>
+  <div class="scan-mask"><div class="aperture" id="aperture">
+    <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+  </div></div>
+  <div class="scan-top">
+    <button class="round-glass" id="scanClose" aria-label="關閉"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <span class="title">掃描支票</span>
+    <button class="round-glass" id="torchBtn" aria-label="手電筒"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2h6l-1 7 3 3-5 10-1-9-3-2z"/></svg></button>
+  </div>
+  <div class="scan-bottom" id="scanBottom">
+    <div class="status-pill" id="statusPill">將支票對齊框內</div>
+    <button class="shutter" id="shutter" aria-label="擷取"></button>
+    <button class="scan-manual" id="scanManual">改用手動輸入</button>
+  </div>
+  <div class="scan-err" id="scanErr">
+    <div id="scanErrMsg">無法啟用相機</div>
+    <button class="scan-fab" id="scanErrManual" style="position:static">改用手動輸入</button>
+  </div>
+</div>
+
+<script>
+/* ============ 設定：把你的 Apps Script /exec 網址貼在這裡 ============ */
+const CONFIG = { API_URL: "https://script.google.com/macros/s/AKfycby1sps5sW5MPD5MOFWSC9qRXS0sMlKVHOz3x55am60DwHgex4pUD_K3kmerJrvnizUZ/exec" };
+/* ================================================================= */
+
+/* ---------- 後端 ---------- */
+const HAS_API = !!CONFIG.API_URL;
+let mem = { checks: [], customers: {} };
+async function api(action, payload){
+  payload = payload || {};
+  if(!HAS_API) return demo(action, payload);
+  try{
+    const res = await fetch(CONFIG.API_URL, { method:'POST', body: JSON.stringify(Object.assign({action}, payload)) });
+    return await res.json();
+  }catch(err){ return { error:'NETWORK' }; }
+}
+function demo(action,p){
+  if(action==='getData') return clone(mem);
+  if(action==='saveCheck'){ const c=p.check; const i=mem.checks.findIndex(x=>x.id===c.id);
+    if(i>=0) mem.checks[i]=c; else mem.checks.push(c);
+    if(c.accountNumber&&c.customerName) mem.customers[c.accountNumber]={name:c.customerName,bank:c.bank,branch:c.branch};
+    return clone(mem); }
+  if(action==='deleteCheck'){ mem.checks=mem.checks.filter(x=>x.id!==p.id); return clone(mem); }
+  if(action==='setCashed'){ const c=mem.checks.find(x=>x.id===p.id); if(c) c.cashed=p.cashed; return clone(mem); }
+  if(action==='renameCustomer'){ if(mem.customers[p.accountNumber]) mem.customers[p.accountNumber].name=p.name;
+    mem.checks.forEach(x=>{ if(x.accountNumber===p.accountNumber) x.customerName=p.name; }); return clone(mem); }
+  if(action==='scan') return { error:'DEMO' };
+  return clone(mem);
+}
+function clone(o){ return JSON.parse(JSON.stringify(o)); }
+
+/* ---------- 狀態 ---------- */
+let S={ checks:[], customers:{}, tab:'calendar' };
+let calCursor=(function(){const d=new Date();return{y:d.getFullYear(),m:d.getMonth()};})();
+let calBasis='dueDate', calSel=today();
+let listQ='', listFilter='all';
+
+/* ---------- 工具 ---------- */
+function today(){const d=new Date();return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate());}
+function p2(n){return String(n).padStart(2,'0');}
+function money(n){return (n===''||n==null||isNaN(n))?'—':new Intl.NumberFormat('zh-TW').format(Math.round(Number(n)));}
+function num(s){const n=String(s).replace(/[^0-9.]/g,'');return n===''?'':Number(n);}
+function uid(){return (self.crypto&&crypto.randomUUID)?crypto.randomUUID():'id-'+Date.now()+'-'+Math.random().toString(36).slice(2);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function statusOf(c){ if(c.cashed)return'cashed'; if(!c.dueDate)return'upcoming'; const t=today();
+  if(c.dueDate<t)return'overdue'; if(c.dueDate===t)return'today'; return'upcoming'; }
+const ST={ cashed:{l:'已兌現',c:'var(--label2)',b:'var(--fill)'}, overdue:{l:'已逾期',c:'#fff',b:'var(--red)'},
+  today:{l:'今日',c:'#fff',b:'var(--orange)'}, upcoming:{l:'待兌現',c:'#fff',b:'var(--green)'} };
+function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show');
+  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2000); }
+function haptic(){ if(navigator.vibrate) try{navigator.vibrate(10);}catch(e){} }
+
+/* ---------- 載入 ---------- */
+api('getData').then(d=>{ if(d&&!d.error){S.checks=d.checks||[]; S.customers=d.customers||{};} render(); })
+  .catch(()=>render());
+function refresh(d){ if(d&&!d.error){S.checks=d.checks||[]; S.customers=d.customers||{};} render(); }
+
+/* ---------- 分頁 ---------- */
+document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{
+  S.tab=b.dataset.tab; document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===b)); render();
+}));
+document.getElementById('addBtn').addEventListener('click',()=>openForm(null));
+document.getElementById('scanFab').addEventListener('click',openScanner);
+
+/* ---------- 渲染 ---------- */
+function render(){
+  document.getElementById('navTitle').textContent = S.tab==='calendar'?'日曆':S.tab==='list'?'支票清單':'客戶';
+  const v=document.getElementById('view');
+  v.innerHTML = (!HAS_API?'<div class="setup-warn">目前是示範模式。把 Apps Script 的 /exec 網址填入程式碼上方 <b>CONFIG.API_URL</b> 後，資料才會存到你的 Google Sheets。</div>':'')
+    + (S.tab==='calendar'?renderCalendar():S.tab==='list'?renderList():renderCustomers());
+  bind();
+}
+function checkRowHTML(c){
+  const st=ST[statusOf(c)];
+  return '<div class="row">'
+    +'<button class="tick '+(c.cashed?'on':'')+'" data-tick="'+c.id+'">'+(c.cashed?'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5L20 6"/></svg>':'')+'</button>'
+    +'<button class="row-main" data-open="'+c.id+'">'
+      +'<div class="row-title">'+esc(c.customerName||'未指定客戶')+'</div>'
+      +'<div class="row-sub">'+esc(c.bank)+(c.branch?' · '+esc(c.branch):'')+' · 票號 '+esc(c.checkNumber||'—')+'</div>'
+      +'<div class="row-sub mono">帳號 '+esc(c.accountNumber||'—')+' · 到期 '+esc(c.dueDate||'—')+'</div>'
+    +'</button>'
+    +'<div style="text-align:right"><div class="amt mono">'+money(c.amount)+'</div>'
+      +'<div class="badge" style="color:'+st.c+';background:'+st.b+';margin-top:4px">'+st.l+'</div></div>'
+    +'</div>';
+}
+function renderCalendar(){
+  const byDate={}; S.checks.forEach(c=>{const k=c[calBasis]; if(k)(byDate[k]=byDate[k]||[]).push(c);});
+  const y=calCursor.y,m=calCursor.m, first=new Date(y,m,1).getDay(), dim=new Date(y,m+1,0).getDate();
+  let cells=''; for(let i=0;i<first;i++) cells+='<div></div>';
+  for(let d=1;d<=dim;d++){
+    const key=y+'-'+p2(m+1)+'-'+p2(d), list=byDate[key]||[], tot=list.reduce((s,c)=>s+(Number(c.amount)||0),0);
+    const over=list.some(c=>statusOf(c)==='overdue'), allC=list.length&&list.every(c=>c.cashed);
+    const ac=over?'var(--red)':allC?'var(--label3)':'var(--green)';
+    cells+='<button class="cell'+(key===today()?' today':'')+(key===calSel?' sel':'')+'" data-day="'+key+'"><span class="dnum">'+d+'</span>'
+      +(list.length?'<span class="dot" style="background:'+ac+'"></span><span class="csum mono" style="color:'+ac+'">'+money(tot)+'</span>':'')+'</button>';
+  }
+  const sel=byDate[calSel]||[], selTot=sel.reduce((s,c)=>s+(Number(c.amount)||0),0);
+  return '<div class="seg" style="margin:6px 16px 0">'
+      +'<button class="'+(calBasis==='dueDate'?'on':'')+'" data-basis="dueDate">依到期日</button>'
+      +'<button class="'+(calBasis==='receivedDate'?'on':'')+'" data-basis="receivedDate">依收票日</button></div>'
+    +'<div class="cal"><div class="cal-hd"><button class="cal-nav" data-mv="-1">‹</button>'
+      +'<div class="cal-month">'+y+'年 '+(m+1)+'月</div><button class="cal-nav" data-mv="1">›</button></div>'
+      +'<div class="dow"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>'
+      +'<div class="grid">'+cells+'</div></div>'
+    +'<div class="section-hd">'+calSel+'（'+(calBasis==='dueDate'?'到期':'收票')+'）· '+sel.length+' 張 · NT$ '+money(selTot)+'</div>'
+    +(sel.length?'<div class="card">'+sel.map(checkRowHTML).join('')+'</div>':'<div class="empty">這天沒有支票</div>');
+}
+function renderList(){
+  let rows=S.checks.slice().sort((a,b)=>(a.dueDate||'').localeCompare(b.dueDate||''));
+  if(listFilter==='cashed') rows=rows.filter(c=>c.cashed);
+  else if(listFilter==='upcoming') rows=rows.filter(c=>!c.cashed&&['upcoming','today'].includes(statusOf(c)));
+  else if(listFilter==='overdue') rows=rows.filter(c=>statusOf(c)==='overdue');
+  if(listQ.trim()){const q=listQ.trim().toLowerCase();
+    rows=rows.filter(c=>[c.customerName,c.bank,c.branch,c.accountNumber,c.checkNumber].some(v=>String(v||'').toLowerCase().includes(q)));}
+  const tot=rows.reduce((s,c)=>s+(Number(c.amount)||0),0);
+  return '<div class="searchwrap"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>'
+      +'<input id="searchInput" placeholder="搜尋 客戶／銀行／帳號／票號" value="'+esc(listQ)+'"></div>'
+    +'<div class="seg">'+[['all','全部'],['upcoming','待兌現'],['overdue','逾期'],['cashed','已兌現']]
+      .map(x=>'<button class="'+(listFilter===x[0]?'on':'')+'" data-filter="'+x[0]+'">'+x[1]+'</button>').join('')+'</div>'
+    +(rows.length?'<div class="totalbar">共 '+rows.length+' 張 · 合計 NT$ '+money(tot)+'</div><div class="card" style="margin-top:8px">'+rows.map(checkRowHTML).join('')+'</div>':'<div class="empty">沒有符合的支票</div>');
+}
+function renderCustomers(){
+  const rows=Object.keys(S.customers).map(acct=>{
+    const info=S.customers[acct], cs=S.checks.filter(c=>c.accountNumber===acct);
+    const pend=cs.filter(c=>!c.cashed).reduce((s,c)=>s+(Number(c.amount)||0),0);
+    return {acct,name:info.name,bank:info.bank,branch:info.branch,count:cs.length,pend};
+  }).sort((a,b)=>(a.name||'').localeCompare(b.name||'','zh-Hant'));
+  if(!rows.length) return '<div class="empty">還沒有客戶。<br>掃描第一張支票後會自動建立。</div>';
+  return '<div class="section-hd">帳號自動對應客戶：掃到既有帳號帶出名稱，新帳號填入即建檔</div><div class="card">'
+    +rows.map(r=>'<div class="row"><div class="row-main"><div class="row-title">'+esc(r.name||'（未命名）')+'</div>'
+      +'<div class="row-sub mono">'+esc(r.bank)+(r.branch?' · '+esc(r.branch):'')+' · 帳號 '+esc(r.acct)+'</div></div>'
+      +'<div style="text-align:right"><div class="amt mono">NT$ '+money(r.pend)+'</div><div class="row-sub">'+r.count+' 張 · 未兌現</div></div>'
+      +'<button class="link-btn" data-rename="'+esc(r.acct)+'">改名</button></div>').join('')+'</div>';
+}
+function bind(){
+  const v=document.getElementById('view');
+  v.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>openForm(b.dataset.open));
+  v.querySelectorAll('[data-tick]').forEach(b=>b.onclick=()=>{const id=b.dataset.tick;const c=S.checks.find(x=>x.id===id);
+    api('setCashed',{id,cashed:!c.cashed}).then(refresh);});
+  v.querySelectorAll('[data-basis]').forEach(b=>b.onclick=()=>{calBasis=b.dataset.basis;render();});
+  v.querySelectorAll('[data-mv]').forEach(b=>b.onclick=()=>{const nm=calCursor.m+Number(b.dataset.mv);
+    calCursor={y:calCursor.y+Math.floor(nm/12),m:((nm%12)+12)%12};render();});
+  v.querySelectorAll('[data-day]').forEach(b=>b.onclick=()=>{calSel=b.dataset.day;render();});
+  v.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{listFilter=b.dataset.filter;render();});
+  v.querySelectorAll('[data-rename]').forEach(b=>b.onclick=()=>{const a=b.dataset.rename;const cur=(S.customers[a]||{}).name||'';
+    const nn=prompt('客戶名稱',cur); if(nn!=null) api('renameCustomer',{accountNumber:a,name:nn.trim()}).then(refresh);});
+  const si=v.querySelector('#searchInput'); if(si) si.oninput=()=>{listQ=si.value;const p=si.selectionStart;render();
+    const ni=document.querySelector('#searchInput'); if(ni){ni.focus();ni.setSelectionRange(p,p);}};
+}
+
+/* ---------- 表單 ---------- */
+let formState=null;
+function openForm(id, prefill){
+  const init=id?S.checks.find(c=>c.id===id):null;
+  formState = init ? clone(init) : Object.assign({
+    id:uid(),bank:'',branch:'',accountNumber:'',checkNumber:'',dueDate:'',amount:'',
+    receivedDate:today(),customerName:'',cashed:false,createdAt:''
+  }, prefill||{});
+  renderForm(!!init);
+  document.getElementById('backdrop').classList.add('show');
+  document.getElementById('sheet').classList.add('show');
+}
+function closeForm(){ document.getElementById('backdrop').classList.remove('show'); document.getElementById('sheet').classList.remove('show'); }
+document.getElementById('backdrop').addEventListener('click',closeForm);
+function renderForm(isEdit){
+  const f=formState, known=f.accountNumber&&S.customers[f.accountNumber];
+  const hint = f.accountNumber ? (known
+    ? '<div class="hint" style="color:var(--green)">● 既有客戶：'+esc(S.customers[f.accountNumber].name)+'</div>'
+    : '<div class="hint" style="color:var(--orange)">● 新帳號，儲存後將建立新客戶</div>') : '<div class="hint"></div>';
+  document.getElementById('sheetContent').innerHTML='<div class="grabber"></div>'
+    +'<div class="sheet-hd"><button class="link-btn" id="cancelBtn">取消</button><h2>'+(isEdit?'編輯支票':'核對支票')+'</h2><button class="link-btn bold" id="saveBtn">儲存</button></div>'
+    +'<div class="sheet-body">'
+      +'<div class="flabel">客戶</div><div class="card">'
+        +'<div class="field"><label>帳號</label><input id="i_acct" class="mono" placeholder="付款人帳號" value="'+esc(f.accountNumber)+'"></div>'
+        +'<div class="field"><label>客戶名稱</label><input id="i_cust" placeholder="'+(known?'':'新客戶名稱')+'" value="'+esc(f.customerName)+'"></div>'
+      +'</div>'+hint
+      +'<div class="flabel">支票資料</div><div class="card">'
+        +'<div class="field"><label>銀行</label><input id="i_bank" placeholder="如 合作金庫" value="'+esc(f.bank)+'"></div>'
+        +'<div class="field"><label>分行</label><input id="i_branch" placeholder="如 鹿港分行" value="'+esc(f.branch)+'"></div>'
+        +'<div class="field"><label>票號</label><input id="i_cno" class="mono" placeholder="支票號碼" value="'+esc(f.checkNumber)+'"></div>'
+        +'<div class="field"><label>金額</label><input id="i_amt" class="mono" inputmode="numeric" placeholder="0" value="'+(f.amount===''?'':esc(f.amount))+'"></div>'
+      +'</div>'
+      +'<div class="flabel">日期</div><div class="card">'
+        +'<div class="field"><label>到期日</label><input id="i_due" type="date" value="'+esc(f.dueDate)+'"></div>'
+        +'<div class="field"><label>收票日期</label><input id="i_recv" type="date" value="'+esc(f.receivedDate)+'"></div>'
+      +'</div>'
+      +'<div class="card" style="margin-top:16px"><div class="switch-row"><span>已兌現 / 已入帳</span><label class="switch"><input type="checkbox" id="i_cashed" '+(f.cashed?'checked':'')+'><span class="slider"></span></label></div></div>'
+      +(isEdit?'<div class="danger"><button id="delBtn">刪除支票</button></div>':'')
+    +'</div>';
+  document.getElementById('cancelBtn').onclick=closeForm;
+  document.getElementById('saveBtn').onclick=saveForm;
+  if(isEdit) document.getElementById('delBtn').onclick=()=>{ if(confirm('確定刪除這張支票？')) api('deleteCheck',{id:formState.id}).then(d=>{refresh(d);closeForm();}); };
+  document.getElementById('i_acct').oninput=e=>{
+    formState.accountNumber=e.target.value; const k=S.customers[formState.accountNumber];
+    if(k){document.getElementById('i_cust').value=k.name||'';}
+    const h=document.querySelector('.hint'); const acc=formState.accountNumber;
+    if(h){ h.textContent=acc?(k?'● 既有客戶：'+(k.name||''):'● 新帳號，儲存後將建立新客戶'):''; h.style.color=k?'var(--green)':'var(--orange)'; }
+  };
+}
+function val(id){const e=document.getElementById(id);return e?e.value:'';}
+function saveForm(){
+  formState.accountNumber=val('i_acct'); formState.customerName=val('i_cust'); formState.bank=val('i_bank');
+  formState.branch=val('i_branch'); formState.checkNumber=val('i_cno'); formState.amount=num(val('i_amt'));
+  formState.dueDate=val('i_due'); formState.receivedDate=val('i_recv'); formState.cashed=document.getElementById('i_cashed').checked;
+  if(formState.amount===''||!formState.dueDate){ toast('金額與到期日為必填'); return; }
+  const btn=document.getElementById('saveBtn'); btn.disabled=true; btn.textContent='儲存中';
+  api('saveCheck',{check:formState}).then(d=>{ refresh(d); closeForm(); toast('已儲存'); })
+    .catch(()=>{ btn.disabled=false; btn.textContent='儲存'; toast('儲存失敗'); });
+}
+
+/* ================= 即時鏡頭掃描器 ================= */
+let stream=null, rafId=null, prevGray=null, steady=0, started=0, torchOn=false, busy=false;
+const SAMPLE_W=96, SAMPLE_H=Math.round(96/2.15);
+const MOTION_MAX=6.5, SHARP_MIN=7.5, STEADY_HITS=7;
+
+async function openScanner(){
+  const sc=document.getElementById('scanner'); sc.classList.add('show');
+  document.getElementById('scanErr').classList.remove('show');
+  document.getElementById('scanBottom').style.display='flex';
+  document.getElementById('freeze').classList.add('hidden');
+  document.getElementById('video').classList.remove('hidden');
+  setStatus('將支票對齊框內', false);
+  busy=false; steady=0; prevGray=null; started=Date.now();
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({ video:{ facingMode:{ideal:'environment'}, width:{ideal:1920}, height:{ideal:1080} }, audio:false });
+    const v=document.getElementById('video'); v.srcObject=stream; await v.play();
+    setupTorch();
+    loop();
+  }catch(err){
+    let msg='無法啟用相機';
+    if(location.protocol!=='https:'&&location.hostname!=='localhost') msg='相機需要 HTTPS 網址才能啟用';
+    else if(err&&err.name==='NotAllowedError') msg='相機權限被拒，請到瀏覽器設定允許相機';
+    else if(!navigator.mediaDevices) msg='此環境不支援相機（請在手機瀏覽器開啟）';
+    document.getElementById('scanErrMsg').textContent=msg;
+    document.getElementById('scanErr').classList.add('show');
+  }
+}
+function closeScanner(){
+  cancelAnimationFrame(rafId);
+  if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+  document.getElementById('scanner').classList.remove('show');
+}
+function setStatus(text, spin){
+  document.getElementById('statusPill').innerHTML=(spin?'<span class="spinner"></span>':'')+text;
+}
+function setupTorch(){
+  const track=stream.getVideoTracks()[0];
+  const caps=track.getCapabilities?track.getCapabilities():{};
+  const btn=document.getElementById('torchBtn');
+  if(!caps.torch){ btn.style.opacity=.35; btn.onclick=()=>toast('此裝置不支援手電筒'); return; }
+  btn.style.opacity=1;
+  btn.onclick=async()=>{ torchOn=!torchOn; try{ await track.applyConstraints({advanced:[{torch:torchOn}]}); btn.style.background=torchOn?'rgba(255,255,255,.45)':'rgba(255,255,255,.16)'; }catch(e){} };
+}
+
+const sctx=(function(){ const c=document.createElement('canvas'); c.width=SAMPLE_W; c.height=SAMPLE_H; return c.getContext('2d',{willReadFrequently:true}); })();
+function loop(){
+  rafId=requestAnimationFrame(loop);
+  if(busy) return;
+  const v=document.getElementById('video');
+  if(!v.videoWidth) return;
+  // 取畫面中央、與取景框同比例的區域來分析
+  const vw=v.videoWidth, vh=v.videoHeight, ar=2.15;
+  let cw=vw, ch=vw/ar; if(ch>vh){ ch=vh; cw=vh*ar; }
+  const sx=(vw-cw)/2, sy=(vh-ch)/2;
+  sctx.drawImage(v, sx, sy, cw, ch, 0, 0, SAMPLE_W, SAMPLE_H);
+  const d=sctx.getImageData(0,0,SAMPLE_W,SAMPLE_H).data;
+  const gray=new Float32Array(SAMPLE_W*SAMPLE_H);
+  for(let i=0,j=0;i<d.length;i+=4,j++) gray[j]=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
+  // 銳利度（水平梯度平均）→ 有沒有清楚的文字邊緣
+  let grad=0,n=0;
+  for(let y=0;y<SAMPLE_H;y++){ for(let x=1;x<SAMPLE_W;x++){ grad+=Math.abs(gray[y*SAMPLE_W+x]-gray[y*SAMPLE_W+x-1]); n++; } }
+  const sharp=grad/n;
+  // 移動量（與上一幀差異）→ 有沒有拿穩
+  let motion=999;
+  if(prevGray){ let s=0; for(let i=0;i<gray.length;i++) s+=Math.abs(gray[i]-prevGray[i]); motion=s/gray.length; }
+  prevGray=gray;
+
+  const aligned = sharp>SHARP_MIN && motion<MOTION_MAX;
+  document.getElementById('aperture').classList.toggle('lock', aligned && steady>2);
+  if(Date.now()-started<1200){ setStatus('將支票對齊框內',false); return; }
+  if(aligned){ steady++;
+    setStatus(steady<STEADY_HITS?'偵測到支票，請拿穩…':'擷取中…', true);
+    if(steady>=STEADY_HITS) capture();
+  }else{ steady=0; setStatus(sharp<=SHARP_MIN?'將支票對齊框內':'請拿穩一點',false); }
+}
+
+function capture(){
+  if(busy) return; busy=true; haptic();
+  cancelAnimationFrame(rafId);
+  const v=document.getElementById('video');
+  const max=1500, sc=Math.min(1,max/Math.max(v.videoWidth,v.videoHeight));
+  const cv=document.getElementById('freeze'); cv.width=Math.round(v.videoWidth*sc); cv.height=Math.round(v.videoHeight*sc);
+  const ctx=cv.getContext('2d'); ctx.drawImage(v,0,0,cv.width,cv.height);
+  cv.classList.remove('hidden'); v.classList.add('hidden');
+  document.getElementById('aperture').classList.add('lock');
+  setStatus('辨識中…', true);
+  const b64=cv.toDataURL('image/jpeg',0.85).split(',')[1];
+  api('scan',{base64:b64,mediaType:'image/jpeg'}).then(r=>{
+    if(r&&!r.error){
+      closeScanner();
+      openForm(null, {
+        bank:r.bank||'', branch:r.branch||'', accountNumber:r.accountNumber||'',
+        checkNumber:r.checkNumber||'', dueDate:r.dueDate||'', amount:r.amount!==''?r.amount:'',
+        customerName:(S.customers[r.accountNumber]||{}).name||''
+      });
+      toast('已帶入，請核對');
+    }else{
+      const e=r&&r.error;
+      toast(e==='NO_KEY'?'尚未設定辨識金鑰，改用手動輸入':e==='DEMO'?'示範模式，改用手動輸入':'辨識失敗，改用手動輸入');
+      closeScanner(); openForm(null);
+    }
+  }).catch(()=>{ toast('辨識失敗，改用手動輸入'); closeScanner(); openForm(null); });
+}
+
+document.getElementById('scanClose').onclick=closeScanner;
+document.getElementById('shutter').onclick=capture;
+document.getElementById('scanManual').onclick=()=>{ closeScanner(); openForm(null); };
+document.getElementById('scanErrManual').onclick=()=>{ closeScanner(); openForm(null); };
+
+/* PWA */
+if('serviceWorker' in navigator){ window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{})); }
+</script>
+</body>
+</html>
