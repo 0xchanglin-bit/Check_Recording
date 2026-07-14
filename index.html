@@ -38,7 +38,7 @@ body{
   background:var(--bg); color:var(--label);
   font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','SF Pro Display','Helvetica Neue','Noto Sans TC',sans-serif;
   font-size:17px; line-height:1.35; -webkit-font-smoothing:antialiased;
-  padding-bottom:calc(150px + env(safe-area-inset-bottom));
+  padding-bottom:calc(96px + env(safe-area-inset-bottom));
 }
 body::before{ content:''; position:fixed; inset:0; z-index:-1; pointer-events:none;
   background:
@@ -62,8 +62,8 @@ button{ font-family:inherit; cursor:pointer; color:inherit; }
 .nav{ position:sticky; top:0; z-index:20; padding-top:env(safe-area-inset-top); }
 .nav-inner{ background:var(--glass-bg); -webkit-backdrop-filter:blur(24px) saturate(180%); backdrop-filter:blur(24px) saturate(180%);
   border-bottom:.5px solid var(--sep); }
-.nav-row{ display:flex; align-items:center; justify-content:flex-end; height:44px; padding:0 12px; }
-.nav-title{ font-size:34px; font-weight:800; letter-spacing:.4px; padding:0 20px 10px; }
+.nav-row{ display:flex; align-items:center; justify-content:space-between; padding:4px 16px 10px; }
+.nav-title{ font-size:32px; font-weight:800; letter-spacing:.4px; }
 .icon-btn{ width:38px; height:38px; border-radius:50%; border:none; display:grid; place-items:center;
   background:var(--fill); }
 
@@ -104,15 +104,14 @@ main{ max-width:620px; margin:0 auto; padding:6px 0 20px; }
 .cell .csum{ font-size:9px; font-weight:700; line-height:1; }
 
 /* bottom floating controls */
-.dock{ position:fixed; left:0; right:0; bottom:0; z-index:30; display:flex; flex-direction:column; align-items:center;
-  gap:12px; padding:0 16px calc(12px + env(safe-area-inset-bottom)); pointer-events:none; }
-.scan-fab{ pointer-events:auto; display:inline-flex; align-items:center; gap:9px; border:none;
-  padding:15px 26px; border-radius:30px; font-size:17px; font-weight:700; color:#fff;
-  background:linear-gradient(180deg,#2A94FF,#0A6EF0);
-  box-shadow:0 10px 30px rgba(10,110,240,.5), inset 0 1px 0 rgba(255,255,255,.5); }
-.scan-fab:active{ transform:scale(.97); }
-.tabbar{ pointer-events:auto; display:flex; gap:4px; padding:6px; border-radius:26px; }
-.tab{ border:none; background:none; padding:6px 20px; display:flex; flex-direction:column; align-items:center; gap:3px;
+.dock{ position:fixed; left:0; right:0; bottom:0; z-index:30; display:flex; flex-direction:row; align-items:center;
+  justify-content:center; gap:10px; padding:0 16px calc(10px + env(safe-area-inset-bottom)); pointer-events:none; }
+.scan-fab{ pointer-events:auto; width:60px; height:60px; border-radius:50%; border:none; display:grid; place-items:center; color:#fff;
+  background:linear-gradient(180deg,#2A94FF,#0A6EF0); flex-shrink:0;
+  box-shadow:0 10px 26px rgba(10,110,240,.5), inset 0 1px 0 rgba(255,255,255,.5); }
+.scan-fab:active{ transform:scale(.95); }
+.tabbar{ pointer-events:auto; display:flex; gap:2px; padding:6px; border-radius:26px; }
+.tab{ border:none; background:none; padding:6px 15px; display:flex; flex-direction:column; align-items:center; gap:3px;
   color:var(--label2); font-size:10.5px; font-weight:600; border-radius:20px; }
 .tab.on{ color:var(--blue); }
 .tab.on .ti{ background:var(--fill); }
@@ -202,31 +201,33 @@ main{ max-width:620px; margin:0 auto; padding:6px 0 20px; }
 .toast.show{ opacity:1; }
 .setup-warn{ margin:14px 16px 0; padding:12px 16px; border-radius:16px; font-size:13px; color:var(--label2);
   background:var(--fill); }
+.dup-warn{ margin:12px 16px 0; padding:11px 14px; border-radius:14px; font-size:13.5px; font-weight:600;
+  color:#B25000; background:rgba(255,149,0,.16); border:.5px solid rgba(255,149,0,.4); }
+@media (prefers-color-scheme:dark){ .dup-warn{ color:#FFB765; } }
 </style>
 </head>
 <body>
 
 <div class="nav"><div class="nav-inner">
   <div class="nav-row">
+    <div class="nav-title" id="navTitle">日曆</div>
     <button class="icon-btn" id="addBtn" aria-label="手動新增">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
     </button>
   </div>
-  <div class="nav-title" id="navTitle">日曆</div>
 </div></div>
 
 <main id="view"><div class="empty"><span class="spinner dark"></span></div></main>
 
 <div class="dock">
-  <button class="scan-fab" id="scanFab">
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8V6a2 2 0 0 1 2-2h2M17 4h2a2 2 0 0 1 2 2v2M21 16v2a2 2 0 0 1-2 2h-2M7 20H5a2 2 0 0 1-2-2v-2"/><path d="M3 12h18"/></svg>
-    掃描支票
-  </button>
   <nav class="tabbar glass">
     <button class="tab on" data-tab="calendar"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4.5" width="18" height="16" rx="4"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg></span>日曆</button>
     <button class="tab" data-tab="list"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg></span>清單</button>
     <button class="tab" data-tab="customers"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg></span>客戶</button>
   </nav>
+  <button class="scan-fab" id="scanFab" aria-label="掃描支票">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8V6a2 2 0 0 1 2-2h2M17 4h2a2 2 0 0 1 2 2v2M21 16v2a2 2 0 0 1-2 2h-2M7 20H5a2 2 0 0 1-2-2v-2"/><path d="M3 12h18"/></svg>
+  </button>
 </div>
 
 <div class="backdrop" id="backdrop"></div>
@@ -364,7 +365,7 @@ function renderCalendar(){
     +'<div class="section-hd">'+calSel+'（'+(calBasis==='dueDate'?'到期':'收票')+'）· '+sel.length+' 張 · NT$ '+money(selTot)+'</div>'
     +(sel.length?'<div class="card">'+sel.map(checkRowHTML).join('')+'</div>':'<div class="empty">這天沒有支票</div>');
 }
-function renderList(){
+function listResultsHTML(){
   let rows=S.checks.slice().sort((a,b)=>(a.dueDate||'').localeCompare(b.dueDate||''));
   if(listFilter==='cashed') rows=rows.filter(c=>c.cashed);
   else if(listFilter==='upcoming') rows=rows.filter(c=>!c.cashed&&['upcoming','today'].includes(statusOf(c)));
@@ -372,39 +373,68 @@ function renderList(){
   if(listQ.trim()){const q=listQ.trim().toLowerCase();
     rows=rows.filter(c=>[c.customerName,c.bank,c.branch,c.accountNumber,c.checkNumber].some(v=>String(v||'').toLowerCase().includes(q)));}
   const tot=rows.reduce((s,c)=>s+(Number(c.amount)||0),0);
+  return rows.length?'<div class="totalbar">共 '+rows.length+' 張 · 合計 NT$ '+money(tot)+'</div><div class="card" style="margin-top:8px">'+rows.map(checkRowHTML).join('')+'</div>':'<div class="empty">沒有符合的支票</div>';
+}
+function renderList(){
   return '<div class="searchwrap"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>'
       +'<input id="searchInput" placeholder="搜尋 客戶／銀行／帳號／票號" value="'+esc(listQ)+'"></div>'
-    +'<div class="seg">'+[['all','全部'],['upcoming','待兌現'],['overdue','逾期'],['cashed','已兌現']]
+    +'<div class="seg" id="listSeg">'+[['all','全部'],['upcoming','待兌現'],['overdue','逾期'],['cashed','已兌現']]
       .map(x=>'<button class="'+(listFilter===x[0]?'on':'')+'" data-filter="'+x[0]+'">'+x[1]+'</button>').join('')+'</div>'
-    +(rows.length?'<div class="totalbar">共 '+rows.length+' 張 · 合計 NT$ '+money(tot)+'</div><div class="card" style="margin-top:8px">'+rows.map(checkRowHTML).join('')+'</div>':'<div class="empty">沒有符合的支票</div>');
+    +'<div id="listResults">'+listResultsHTML()+'</div>';
 }
 function renderCustomers(){
-  const rows=Object.keys(S.customers).map(acct=>{
-    const info=S.customers[acct], cs=S.checks.filter(c=>c.accountNumber===acct);
+  const groups={};
+  Object.keys(S.customers).forEach(acct=>{
+    const info=S.customers[acct]; const nm=info.name||'（未命名）';
+    (groups[nm]=groups[nm]||{name:nm,accounts:[]}).accounts.push({acct,bank:info.bank,branch:info.branch});
+  });
+  const rows=Object.values(groups).map(g=>{
+    const cs=S.checks.filter(c=>c.customerName===g.name);
     const pend=cs.filter(c=>!c.cashed).reduce((s,c)=>s+(Number(c.amount)||0),0);
-    return {acct,name:info.name,bank:info.bank,branch:info.branch,count:cs.length,pend};
+    return {name:g.name,accounts:g.accounts,count:cs.length,pend};
   }).sort((a,b)=>(a.name||'').localeCompare(b.name||'','zh-Hant'));
   if(!rows.length) return '<div class="empty">還沒有客戶。<br>掃描第一張支票後會自動建立。</div>';
-  return '<div class="section-hd">帳號自動對應客戶：掃到既有帳號帶出名稱，新帳號填入即建檔</div><div class="card">'
-    +rows.map(r=>'<div class="row"><div class="row-main"><div class="row-title">'+esc(r.name||'（未命名）')+'</div>'
-      +'<div class="row-sub mono">'+esc(r.bank)+(r.branch?' · '+esc(r.branch):'')+' · 帳號 '+esc(r.acct)+'</div></div>'
-      +'<div style="text-align:right"><div class="amt mono">NT$ '+money(r.pend)+'</div><div class="row-sub">'+r.count+' 張 · 未兌現</div></div>'
-      +'<button class="link-btn" data-rename="'+esc(r.acct)+'">改名</button></div>').join('')+'</div>';
+  return '<div class="section-hd">同一位客戶的多個帳號已合併，金額為未兌現合計</div><div class="card">'
+    +rows.map(r=>{
+      const accts=r.accounts.map(a=>'<div class="row-sub mono">'+esc(a.bank||'')+(a.branch?' · '+esc(a.branch):'')+' · 帳號 '+esc(a.acct)+'</div>').join('');
+      return '<div class="row" style="flex-direction:column;align-items:stretch;gap:8px">'
+        +'<div style="display:flex;align-items:center;gap:10px">'
+          +'<div class="row-title" style="flex:1">'+esc(r.name)+(r.accounts.length>1?' <span class="row-sub" style="font-weight:400">('+r.accounts.length+' 個帳號)</span>':'')+'</div>'
+          +'<div style="text-align:right"><div class="amt mono">NT$ '+money(r.pend)+'</div><div class="row-sub">'+r.count+' 張 · 未兌現</div></div>'
+          +'<button class="link-btn" data-rename="'+esc(r.name)+'">改名</button>'
+        +'</div>'+accts+'</div>';
+    }).join('')+'</div>';
+}
+function bindRows(scope){
+  scope.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>openForm(b.dataset.open));
+  scope.querySelectorAll('[data-tick]').forEach(b=>b.onclick=()=>{const id=b.dataset.tick;const c=S.checks.find(x=>x.id===id);
+    api('setCashed',{id,cashed:!c.cashed}).then(refresh);});
 }
 function bind(){
   const v=document.getElementById('view');
-  v.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>openForm(b.dataset.open));
-  v.querySelectorAll('[data-tick]').forEach(b=>b.onclick=()=>{const id=b.dataset.tick;const c=S.checks.find(x=>x.id===id);
-    api('setCashed',{id,cashed:!c.cashed}).then(refresh);});
+  bindRows(v);
   v.querySelectorAll('[data-basis]').forEach(b=>b.onclick=()=>{calBasis=b.dataset.basis;render();});
   v.querySelectorAll('[data-mv]').forEach(b=>b.onclick=()=>{const nm=calCursor.m+Number(b.dataset.mv);
     calCursor={y:calCursor.y+Math.floor(nm/12),m:((nm%12)+12)%12};render();});
   v.querySelectorAll('[data-day]').forEach(b=>b.onclick=()=>{calSel=b.dataset.day;render();});
-  v.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{listFilter=b.dataset.filter;render();});
-  v.querySelectorAll('[data-rename]').forEach(b=>b.onclick=()=>{const a=b.dataset.rename;const cur=(S.customers[a]||{}).name||'';
-    const nn=prompt('客戶名稱',cur); if(nn!=null) api('renameCustomer',{accountNumber:a,name:nn.trim()}).then(refresh);});
-  const si=v.querySelector('#searchInput'); if(si) si.oninput=()=>{listQ=si.value;const p=si.selectionStart;render();
-    const ni=document.querySelector('#searchInput'); if(ni){ni.focus();ni.setSelectionRange(p,p);}};
+  // 篩選：只更新結果，不重建搜尋框（避免輸入法組字被打斷）
+  v.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{
+    listFilter=b.dataset.filter;
+    const seg=document.getElementById('listSeg'); if(seg) seg.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+    const res=document.getElementById('listResults'); if(res){ res.innerHTML=listResultsHTML(); bindRows(res); }
+  });
+  // 改名：合併同名客戶的所有帳號一起改
+  v.querySelectorAll('[data-rename]').forEach(b=>b.onclick=async()=>{
+    const name=b.dataset.rename;
+    const accts=Object.keys(S.customers).filter(a=>(S.customers[a].name||'（未命名）')===name);
+    const nn=prompt('客戶名稱',name); if(nn==null) return;
+    const val=nn.trim(); let last;
+    for(const a of accts){ last=await api('renameCustomer',{accountNumber:a,name:val}); }
+    refresh(last);
+  });
+  // 搜尋：搜尋框固定不動，只更新結果（修正注音重複）
+  const si=v.querySelector('#searchInput');
+  if(si) si.oninput=()=>{ listQ=si.value; const res=document.getElementById('listResults'); if(res){ res.innerHTML=listResultsHTML(); bindRows(res); } };
 }
 
 /* ---------- 表單 ---------- */
@@ -455,6 +485,7 @@ function renderForm(isEdit){
         +'<button class="'+(!isThird?'on':'')+'" data-ctype="own">自票（客戶本人）</button>'
         +'<button class="'+(isThird?'on':'')+'" data-ctype="third">客票（客戶轉交）</button>'
       +'</div>'
+      +'<div id="dupWarn" class="dup-warn" style="display:none"></div>'
       +'<div class="flabel">客戶</div><div class="card">'
         +'<div class="field"><label>帳號</label><input id="i_acct" class="mono" placeholder="'+(isThird?'票主帳號（-與開頭0會自動去除）':'付款人帳號')+'" value="'+esc(f.accountNumber)+'"></div>'
         +'<div class="field"><label>'+custLabel+'</label><input id="i_cust" list="custNames" placeholder="'+(known?'':(isThird?'交票給你的客戶':'新客戶名稱'))+'" value="'+esc(f.customerName)+'"></div>'
@@ -480,19 +511,37 @@ function renderForm(isEdit){
   if(isEdit) document.getElementById('delBtn').onclick=()=>{ if(confirm('確定刪除這張支票？')) api('deleteCheck',{id:formState.id}).then(d=>{refresh(d);closeForm();}); };
   document.getElementById('i_acct').oninput=e=>{
     formState.accountNumber=e.target.value;
+    updateDup();
     if(formState.checkType==='third') return;
     const k=S.customers[normAcct(formState.accountNumber)];
     if(k){ document.getElementById('i_cust').value=k.name||''; }
     const h=document.querySelector('.hint'); const acc=formState.accountNumber;
     if(h){ h.textContent=acc?(k?'● 既有客戶：'+(k.name||''):'● 新帳號，儲存後將建立新客戶'):''; h.style.color=k?'var(--green)':'var(--orange)'; }
   };
+  const cnoEl=document.getElementById('i_cno'); if(cnoEl) cnoEl.oninput=updateDup;
+  updateDup();
 }
 function val(id){const e=document.getElementById(id);return e?e.value:'';}
+/* 重複支票偵測：同票號 + 同帳號（無帳號則比對同銀行）視為可能重複 */
+function currentDup(){
+  const cno=(val('i_cno')||'').trim(); if(!cno) return null;
+  const acct=normAcct(val('i_acct')); const bank=(val('i_bank')||'').trim();
+  return S.checks.find(c=>c.id!==formState.id && (c.checkNumber||'').trim()===cno &&
+    ( (acct && normAcct(c.accountNumber)===acct) || (!acct && bank && (c.bank||'').trim()===bank) ));
+}
+function updateDup(){
+  const el=document.getElementById('dupWarn'); if(!el) return;
+  const d=currentDup();
+  if(d){ el.style.display='block'; el.innerHTML='⚠️ 這張支票可能已建檔：'+esc(d.customerName||'未指定客戶')+' · 到期 '+esc(d.dueDate||'—')+' · NT$ '+money(d.amount); }
+  else el.style.display='none';
+}
 function saveForm(){
   collectForm();
   formState.accountNumber=normAcct(formState.accountNumber);
   if(formState.checkType!=='third') formState.drawer='';
   if(formState.amount===''||!formState.dueDate){ toast('金額與到期日為必填'); return; }
+  const dup=currentDup();
+  if(dup && !confirm('這張支票可能已建檔（票號 '+(formState.checkNumber||'')+'，客戶 '+(dup.customerName||'')+'）。仍要儲存嗎？')) return;
   const btn=document.getElementById('saveBtn'); btn.disabled=true; btn.textContent='儲存中';
   api('saveCheck',{check:formState}).then(d=>{ refresh(d); closeForm(); toast('已儲存'); })
     .catch(()=>{ btn.disabled=false; btn.textContent='儲存'; toast('儲存失敗'); });
@@ -595,7 +644,8 @@ function capture(){
         checkType:'own', drawer:'',
         customerName:(S.customers[acct]||{}).name||''
       });
-      toast('已帶入，請核對');
+      if(currentDup()) toast('⚠️ 此支票可能已建檔，請確認');
+      else toast('已帶入，請核對');
     }else{
       const e=r&&r.error;
       toast(e==='NO_KEY'?'尚未設定辨識金鑰，改用手動輸入':e==='DEMO'?'示範模式，改用手動輸入':'辨識失敗，改用手動輸入');
