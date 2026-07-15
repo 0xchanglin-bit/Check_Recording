@@ -33,12 +33,12 @@
   }
 }
 *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-html,body{ margin:0; height:100%; }
+html{ height:100%; }
 body{
+  margin:0; height:100vh; height:100dvh; overflow:hidden; display:flex; flex-direction:column;
   background:var(--bg); color:var(--label);
   font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','SF Pro Display','Helvetica Neue','Noto Sans TC',sans-serif;
   font-size:17px; line-height:1.35; -webkit-font-smoothing:antialiased;
-  padding-bottom:calc(110px + env(safe-area-inset-bottom));
 }
 body::before{ content:''; position:fixed; inset:0; z-index:-1; pointer-events:none;
   background:
@@ -59,7 +59,7 @@ button{ font-family:inherit; cursor:pointer; color:inherit; }
 }
 
 /* Nav */
-.nav{ position:sticky; top:0; z-index:20; padding-top:env(safe-area-inset-top); }
+.nav{ flex-shrink:0; z-index:20; padding-top:env(safe-area-inset-top); }
 .nav-inner{ background:var(--glass-bg); -webkit-backdrop-filter:blur(24px) saturate(180%); backdrop-filter:blur(24px) saturate(180%);
   border-bottom:.5px solid var(--sep); }
 .nav-row{ display:flex; align-items:center; justify-content:space-between; padding:4px 16px 10px; }
@@ -67,7 +67,8 @@ button{ font-family:inherit; cursor:pointer; color:inherit; }
 .icon-btn{ width:38px; height:38px; border-radius:50%; border:none; display:grid; place-items:center;
   background:var(--fill); }
 
-main{ max-width:620px; margin:0 auto; padding:6px 0 20px; }
+main{ flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch; width:100%; max-width:620px; margin:0 auto;
+  padding:6px 0 calc(100px + env(safe-area-inset-bottom)); }
 
 .section-hd{ font-size:13px; color:var(--label2); padding:18px 30px 8px; }
 .card{ background:var(--card); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
@@ -119,7 +120,9 @@ main{ max-width:620px; margin:0 auto; padding:6px 0 20px; }
 .tab svg{ width:25px; height:25px; }
 
 .empty{ text-align:center; color:var(--label2); font-size:15px; padding:44px 24px; }
-.cust-head.tappable{ cursor:pointer; }
+.cust-row.tappable{ cursor:pointer; }
+.chev-c{ color:var(--label3); flex-shrink:0; width:12px; text-align:center; font-size:12px; transition:transform .2s; }
+.cust-count{ font-weight:400; color:var(--label2); font-size:13px; }
 .totalbar{ text-align:right; font-size:13px; color:var(--label2); padding:10px 30px 0; }
 .searchwrap{ margin:10px 16px; position:relative; }
 .searchwrap input{ width:100%; border:none; background:var(--fill); border-radius:12px; padding:10px 12px 10px 36px; font-size:16px; color:var(--label); outline:none; }
@@ -395,18 +398,23 @@ function renderCustomers(){
     return {name:g.name,accounts:g.accounts,count:cs.length,pend};
   }).sort((a,b)=>(a.name||'').localeCompare(b.name||'','zh-Hant'));
   if(!rows.length) return '<div class="empty">還沒有客戶。<br>掃描第一張支票後會自動建立。</div>';
-  return '<div class="section-hd">同一位客戶的多個帳號已合併，金額為未兌現合計。多帳號預設收合，點客戶展開</div><div class="card">'
+  return '<div class="section-hd">同一位客戶的多個帳號已合併，金額為未兌現合計。多帳號點卡片可展開其餘帳號</div><div class="card">'
     +rows.map(r=>{
       const multi=r.accounts.length>1;
-      const accts=r.accounts.map(a=>'<div class="row-sub mono">'+esc(a.bank||'')+(a.branch?' · '+esc(a.branch):'')+' · 帳號 '+esc(a.acct)+'</div>').join('');
-      const header='<div class="cust-head'+(multi?' tappable':'')+'"'+(multi?' data-cust-toggle':'')+' style="display:flex;align-items:center;gap:8px">'
-          +(multi?'<span class="chev-c" style="color:var(--label3);flex-shrink:0;transition:transform .2s">▸</span>':'')
-          +'<div class="row-title" style="flex:1;min-width:0">'+esc(r.name)+(multi?' <span class="row-sub" style="font-weight:400">('+r.accounts.length+' 個帳號)</span>':'')+'</div>'
+      const first=r.accounts[0]||{};
+      const line=a=>'<div class="row-sub mono">'+esc(a.bank||'')+(a.branch?' · '+esc(a.branch):'')+' · 帳號 '+esc(a.acct)+'</div>';
+      const restLines=r.accounts.slice(1).map(line).join('');
+      return '<div class="row cust-row'+(multi?' tappable':'')+'"'+(multi?' data-cust-toggle':'')+' style="flex-direction:column;align-items:stretch;gap:6px">'
+        +'<div style="display:flex;align-items:center;gap:8px">'
+          +'<span class="chev-c"'+(multi?'':' style="visibility:hidden"')+'>▸</span>'
+          +'<div class="row-title" style="flex:1;min-width:0">'+esc(r.name)+(multi?' <span class="cust-count">('+r.accounts.length+' 個帳號)</span>':'')+'</div>'
           +'<div style="text-align:right"><div class="amt mono">NT$ '+money(r.pend)+'</div><div class="row-sub">'+r.count+' 張 · 未兌現</div></div>'
           +'<button class="link-btn" data-rename="'+esc(r.name)+'">改名</button>'
-        +'</div>';
-      const acctWrap='<div class="cust-accts"'+(multi?' style="display:none;margin-top:8px"':' style="margin-top:8px"')+'>'+accts+'</div>';
-      return '<div class="row" style="flex-direction:column;align-items:stretch;gap:0">'+header+acctWrap+'</div>';
+        +'</div>'
+        +'<div style="padding-left:20px">'+line(first)
+          +(multi?'<div class="cust-accts" style="display:none">'+restLines+'</div>':'')
+        +'</div>'
+      +'</div>';
     }).join('')+'</div>';
 }
 function bindRows(scope){
