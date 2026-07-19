@@ -365,7 +365,7 @@ function openVoice(){
       +'<button class="voice-mic" id="vMic" aria-label="開始說話">'
         +'<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.5" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>'
       +'</button>'
-      +'<div class="voice-status" id="vStatus">點麥克風，唸出整張支票的資訊</div>'
+      +'<div class="voice-status" id="vStatus">按下麥克風後開始說話</div>'
       +'<textarea class="voice-text" id="vText" placeholder="例如：合作金庫鹿港分行，帳號五八三零四九二，票號一二三四五六，金額三萬五千八，到期八月十五"></textarea>'
       +'<div class="voice-hint">唸完停頓約 3 秒會自動解析，也可按右上「解析」。<br>若麥克風沒反應，可點文字框、用鍵盤上的 🎤 唸同一句話。</div>'
     +'</div></div>';
@@ -375,7 +375,6 @@ function openVoice(){
   document.getElementById('vParse').onclick=()=>doParseVoice(false);
   document.getElementById('vMic').onclick=toggleRecog;
   recogFinal=''; vParsing=false;
-  setTimeout(startRecog,300);   // 開啟即自動開始聽
 }
 function vStatus(t){ const e=document.getElementById('vStatus'); if(e) e.textContent=t; }
 function micUI(on){ const m=document.getElementById('vMic'); if(m) m.classList.toggle('rec',on); }
