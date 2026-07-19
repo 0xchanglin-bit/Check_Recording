@@ -129,6 +129,17 @@ main{ flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch; width:10
 .voice-text{ width:100%; min-height:110px; border:none; border-radius:16px; background:var(--card); color:var(--label);
   font-size:17px; line-height:1.5; padding:14px; outline:none; resize:none; font-family:inherit; }
 .voice-hint{ font-size:12.5px; color:var(--label2); padding:10px 6px 0; line-height:1.6; }
+.voice-load{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; padding:52px 24px 60px; }
+.voice-load .ring{ width:54px; height:54px; border:4px solid var(--fill2); border-top-color:var(--blue); border-radius:50%;
+  animation:spin .8s linear infinite; }
+.voice-load .txt{ font-size:16px; font-weight:600; color:var(--label); }
+.voice-load .sub{ font-size:13px; color:var(--label2); text-align:center; line-height:1.6; }
+.dots span{ display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--blue); margin:0 3px;
+  animation:bounce 1.2s infinite ease-in-out; }
+.dots span:nth-child(2){ animation-delay:.16s; }
+.dots span:nth-child(3){ animation-delay:.32s; }
+@keyframes bounce{ 0%,80%,100%{ transform:translateY(0); opacity:.35; } 40%{ transform:translateY(-7px); opacity:1; } }
+.countdown{ font-size:12.5px; color:var(--blue); font-weight:600; }
 .cust-row.tappable{ cursor:pointer; }
 .chev-c{ color:var(--label3); flex-shrink:0; width:12px; text-align:center; font-size:12px; transition:transform .2s; }
 .cust-count{ font-weight:400; color:var(--label2); font-size:13px; }
@@ -343,25 +354,26 @@ document.getElementById('addBtn').addEventListener('click',()=>openForm(null));
 document.getElementById('voiceBtn').addEventListener('click',openVoice);
 
 /* ============ 語音輸入 ============ */
-let recog=null, recogOn=false, recogFinal='';
+let recog=null, recogOn=false, recogFinal='', lastSpeech=0, silenceTimer=null, vParsing=false;
+const SILENCE_MS=3500;   // 停止說話後幾毫秒自動解析
 function openVoice(){
   document.getElementById('sheetContent').innerHTML='<div class="grabber"></div>'
     +'<div class="sheet-hd"><button class="link-btn" id="vCancel">取消</button><h2>語音輸入</h2>'
       +'<button class="link-btn bold" id="vParse">解析</button></div>'
-    +'<div class="sheet-body"><div class="voice-wrap">'
+    +'<div class="sheet-body" id="vBody"><div class="voice-wrap">'
       +'<button class="voice-mic" id="vMic" aria-label="開始說話">'
         +'<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.5" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>'
       +'</button>'
       +'<div class="voice-status" id="vStatus">點麥克風，唸出整張支票的資訊</div>'
       +'<textarea class="voice-text" id="vText" placeholder="例如：合作金庫鹿港分行，帳號五八三零四九二，票號一二三四五六，金額三萬五千八，到期八月十五"></textarea>'
-      +'<div class="voice-hint">唸完按右上「解析」，會自動填好欄位並跳出核對視窗。<br>若麥克風沒反應，可點文字框、用鍵盤上的 🎤 唸同一句話。</div>'
+      +'<div class="voice-hint">唸完停頓約 3 秒會自動解析，也可按右上「解析」。<br>若麥克風沒反應，可點文字框、用鍵盤上的 🎤 唸同一句話。</div>'
     +'</div></div>';
   document.getElementById('backdrop').classList.add('show');
   document.getElementById('sheet').classList.add('show');
   document.getElementById('vCancel').onclick=()=>{ stopRecog(); closeForm(); };
-  document.getElementById('vParse').onclick=doParseVoice;
+  document.getElementById('vParse').onclick=()=>doParseVoice(false);
   document.getElementById('vMic').onclick=toggleRecog;
-  recogFinal='';
+  recogFinal=''; vParsing=false;
   setTimeout(startRecog,300);   // 開啟即自動開始聽
 }
 function vStatus(t){ const e=document.getElementById('vStatus'); if(e) e.textContent=t; }
@@ -373,7 +385,7 @@ function startRecog(){
   try{
     recog=new SR();
     recog.lang='zh-TW'; recog.interimResults=true; recog.continuous=true;
-    recog.onstart=()=>{ recogOn=true; micUI(true); vStatus('聽取中…請唸出支票資訊'); };
+    recog.onstart=()=>{ recogOn=true; micUI(true); vStatus('聽取中…請唸出支票資訊'); lastSpeech=0; startSilenceWatch(); };
     recog.onresult=(e)=>{
       let interim='';
       for(let i=e.resultIndex;i<e.results.length;i++){
@@ -381,27 +393,59 @@ function startRecog(){
         if(e.results[i].isFinal) recogFinal+=t; else interim+=t;
       }
       const ta=document.getElementById('vText'); if(ta) ta.value=recogFinal+interim;
+      lastSpeech=Date.now();
     };
     recog.onerror=(e)=>{
-      recogOn=false; micUI(false);
+      recogOn=false; micUI(false); stopSilenceWatch();
       if(e.error==='not-allowed') vStatus('麥克風權限被拒，請點文字框改用鍵盤 🎤');
+      else if(e.error==='no-speech') vStatus('沒聽到聲音，可再按一次麥克風');
       else vStatus('聽寫無法使用，請點文字框，用鍵盤的 🎤 唸');
     };
-    recog.onend=()=>{ recogOn=false; micUI(false);
+    recog.onend=()=>{ recogOn=false; micUI(false); stopSilenceWatch();
       const ta=document.getElementById('vText');
-      if(ta && ta.value.trim()) vStatus('唸完了就按右上「解析」');
+      if(vParsing) return;
+      if(ta && ta.value.trim()) doParseVoice(true);            // 講完自動解析
       else vStatus('沒聽到內容，可再按一次麥克風，或用鍵盤 🎤'); };
     recog.start();
   }catch(err){ vStatus('聽寫無法使用，請點文字框，用鍵盤的 🎤 唸'); }
 }
-function stopRecog(){ try{ if(recog) recog.stop(); }catch(e){} recogOn=false; micUI(false); }
-function doParseVoice(){
-  stopRecog();
+/* 靜音偵測：停止說話約 3.5 秒就自動送出解析 */
+function startSilenceWatch(){
+  stopSilenceWatch();
+  silenceTimer=setInterval(()=>{
+    if(!recogOn||vParsing) return;
+    const ta=document.getElementById('vText');
+    if(!ta||!ta.value.trim()||!lastSpeech) return;
+    const idle=Date.now()-lastSpeech;
+    if(idle>=SILENCE_MS){ stopSilenceWatch(); doParseVoice(true); return; }
+    if(idle>1200){
+      const left=Math.ceil((SILENCE_MS-idle)/1000);
+      vStatus2('聽取中…','講完了嗎？'+left+' 秒後自動解析');
+    }
+  },300);
+}
+function stopSilenceWatch(){ if(silenceTimer){ clearInterval(silenceTimer); silenceTimer=null; } }
+function vStatus2(main,sub){
+  const e=document.getElementById('vStatus');
+  if(e) e.innerHTML=esc(main)+' <span class="countdown">'+esc(sub)+'</span>';
+}
+function stopRecog(){ stopSilenceWatch(); try{ if(recog) recog.stop(); }catch(e){} recogOn=false; micUI(false); }
+function doParseVoice(auto){
+  if(vParsing) return;
   const ta=document.getElementById('vText'); const text=(ta?ta.value:'').trim();
-  if(!text){ toast('還沒有內容，請先唸一次'); return; }
-  const btn=document.getElementById('vParse'); btn.disabled=true; btn.textContent='解析中';
-  vStatus('整理中…');
+  if(!text){ if(!auto) toast('還沒有內容，請先唸一次'); return; }
+  vParsing=true; stopRecog();
+  const btn=document.getElementById('vParse'); if(btn){ btn.disabled=true; btn.textContent='解析中'; }
+  // 解析中畫面
+  const body=document.getElementById('vBody');
+  if(body) body.innerHTML='<div class="voice-load">'
+    +'<div class="ring"></div>'
+    +'<div class="txt">解析中…</div>'
+    +'<div class="dots"><span></span><span></span><span></span></div>'
+    +'<div class="sub">正在整理成銀行、帳號、票號、金額與到期日<br>完成後會跳出核對視窗</div>'
+  +'</div>';
   api('parseVoice',{text}).then(r=>{
+    vParsing=false;
     if(r&&!r.error){
       const acct=normAcct(r.accountNumber||'');
       openForm(null,{
@@ -413,11 +457,33 @@ function doParseVoice(){
       if(currentDup()) toast('⚠️ 此支票可能已建檔，請確認');
       else toast('已帶入，請核對');
     }else{
-      btn.disabled=false; btn.textContent='解析';
-      const e=r&&r.error;
-      vStatus(e==='NO_KEY'?'尚未設定辨識金鑰':e==='EMPTY'?'內容是空的':'解析失敗，請再唸一次或手動輸入');
+      const e=(r&&r.error)||'';
+      let msg='解析失敗，請再唸一次或改用手動輸入';
+      if(e==='NO_KEY') msg='尚未設定辨識金鑰（ANTHROPIC_API_KEY）';
+      else if(e==='EMPTY') msg='內容是空的';
+      else if(e==='UNKNOWN_ACTION') msg='後端還是舊版：請到 Apps Script「管理部署作業 → 新版本 → 部署」';
+      else if(e==='NETWORK') msg='連不到後端，請檢查網路或 API 網址';
+      else if(String(e).indexOf('API_')===0) msg='辨識服務回應 '+e.replace('API_','')+'，請稍後再試';
+      restoreVoiceUI(text,msg);
     }
-  }).catch(()=>{ btn.disabled=false; btn.textContent='解析'; vStatus('解析失敗，請再試一次'); });
+  }).catch(()=>{ vParsing=false; restoreVoiceUI(text,'解析失敗，請再試一次'); });
+}
+/* 解析失敗時把畫面還原，保留剛剛唸的文字 */
+function restoreVoiceUI(text,msg){
+  const body=document.getElementById('vBody');
+  if(!body) return;
+  body.innerHTML='<div class="voice-wrap">'
+    +'<button class="voice-mic" id="vMic" aria-label="重新說話">'
+      +'<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.5" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>'
+    +'</button>'
+    +'<div class="voice-status" id="vStatus" style="color:var(--red)">'+esc(msg)+'</div>'
+    +'<textarea class="voice-text" id="vText"></textarea>'
+    +'<div class="voice-hint">可直接修改上面的文字後，再按右上「解析」。</div>'
+  +'</div>';
+  const ta=document.getElementById('vText'); if(ta) ta.value=text;
+  const btn=document.getElementById('vParse'); if(btn){ btn.disabled=false; btn.textContent='解析'; }
+  const mic=document.getElementById('vMic'); if(mic) mic.onclick=toggleRecog;
+  recogFinal=text?text+' ':'';
 }
 document.getElementById('scanFab').addEventListener('click',openScanner);
 
