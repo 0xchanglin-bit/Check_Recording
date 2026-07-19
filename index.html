@@ -120,6 +120,15 @@ main{ flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch; width:10
 .tab svg{ width:25px; height:25px; }
 
 .empty{ text-align:center; color:var(--label2); font-size:15px; padding:44px 24px; }
+.voice-wrap{ padding:8px 16px 0; }
+.voice-mic{ width:88px; height:88px; border-radius:50%; border:none; margin:6px auto 14px; display:grid; place-items:center;
+  background:linear-gradient(180deg,#2A94FF,#0A6EF0); color:#fff;
+  box-shadow:0 10px 26px rgba(10,110,240,.45), inset 0 1px 0 rgba(255,255,255,.5); }
+.voice-mic.rec{ background:linear-gradient(180deg,#FF6B60,#E0342A); box-shadow:0 10px 26px rgba(224,52,42,.5); animation:pulse 1.3s ease-in-out infinite; }
+.voice-status{ text-align:center; font-size:14px; color:var(--label2); margin-bottom:12px; min-height:20px; }
+.voice-text{ width:100%; min-height:110px; border:none; border-radius:16px; background:var(--card); color:var(--label);
+  font-size:17px; line-height:1.5; padding:14px; outline:none; resize:none; font-family:inherit; }
+.voice-hint{ font-size:12.5px; color:var(--label2); padding:10px 6px 0; line-height:1.6; }
 .cust-row.tappable{ cursor:pointer; }
 .chev-c{ color:var(--label3); flex-shrink:0; width:12px; text-align:center; font-size:12px; transition:transform .2s; }
 .cust-count{ font-weight:400; color:var(--label2); font-size:13px; }
@@ -217,9 +226,14 @@ main{ flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch; width:10
 <div class="nav"><div class="nav-inner">
   <div class="nav-row">
     <div class="nav-title" id="navTitle">日曆</div>
-    <button class="icon-btn" id="addBtn" aria-label="手動新增">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-    </button>
+    <div style="display:flex;align-items:center;gap:8px">
+      <button class="icon-btn" id="voiceBtn" aria-label="語音輸入">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.5" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>
+      </button>
+      <button class="icon-btn" id="addBtn" aria-label="手動新增">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+    </div>
   </div>
 </div></div>
 
@@ -265,7 +279,7 @@ main{ flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch; width:10
 
 <script>
 /* ============ 設定：把你的 Apps Script /exec 網址貼在這裡 ============ */
-    const CONFIG = { API_URL: "https://script.google.com/macros/s/AKfycby1sps5sW5MPD5MOFWSC9qRXS0sMlKVHOz3x55am60DwHgex4pUD_K3kmerJrvnizUZ/exec" };
+const CONFIG = { API_URL: "" };
 /* ================================================================= */
 
 /* ---------- 後端 ---------- */
@@ -326,6 +340,85 @@ document.querySelectorAll('.tab[data-tab]').forEach(b=>b.addEventListener('click
   S.tab=b.dataset.tab; document.querySelectorAll('.tab[data-tab]').forEach(x=>x.classList.toggle('on',x===b)); render();
 }));
 document.getElementById('addBtn').addEventListener('click',()=>openForm(null));
+document.getElementById('voiceBtn').addEventListener('click',openVoice);
+
+/* ============ 語音輸入 ============ */
+let recog=null, recogOn=false, recogFinal='';
+function openVoice(){
+  document.getElementById('sheetContent').innerHTML='<div class="grabber"></div>'
+    +'<div class="sheet-hd"><button class="link-btn" id="vCancel">取消</button><h2>語音輸入</h2>'
+      +'<button class="link-btn bold" id="vParse">解析</button></div>'
+    +'<div class="sheet-body"><div class="voice-wrap">'
+      +'<button class="voice-mic" id="vMic" aria-label="開始說話">'
+        +'<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.5" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>'
+      +'</button>'
+      +'<div class="voice-status" id="vStatus">點麥克風，唸出整張支票的資訊</div>'
+      +'<textarea class="voice-text" id="vText" placeholder="例如：合作金庫鹿港分行，帳號五八三零四九二，票號一二三四五六，金額三萬五千八，到期八月十五"></textarea>'
+      +'<div class="voice-hint">唸完按右上「解析」，會自動填好欄位並跳出核對視窗。<br>若麥克風沒反應，可點文字框、用鍵盤上的 🎤 唸同一句話。</div>'
+    +'</div></div>';
+  document.getElementById('backdrop').classList.add('show');
+  document.getElementById('sheet').classList.add('show');
+  document.getElementById('vCancel').onclick=()=>{ stopRecog(); closeForm(); };
+  document.getElementById('vParse').onclick=doParseVoice;
+  document.getElementById('vMic').onclick=toggleRecog;
+  recogFinal='';
+  setTimeout(startRecog,300);   // 開啟即自動開始聽
+}
+function vStatus(t){ const e=document.getElementById('vStatus'); if(e) e.textContent=t; }
+function micUI(on){ const m=document.getElementById('vMic'); if(m) m.classList.toggle('rec',on); }
+function toggleRecog(){ recogOn?stopRecog():startRecog(); }
+function startRecog(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){ vStatus('此裝置無法直接聽寫，請點下方文字框，用鍵盤的 🎤 唸'); document.getElementById('vText').focus(); return; }
+  try{
+    recog=new SR();
+    recog.lang='zh-TW'; recog.interimResults=true; recog.continuous=true;
+    recog.onstart=()=>{ recogOn=true; micUI(true); vStatus('聽取中…請唸出支票資訊'); };
+    recog.onresult=(e)=>{
+      let interim='';
+      for(let i=e.resultIndex;i<e.results.length;i++){
+        const t=e.results[i][0].transcript;
+        if(e.results[i].isFinal) recogFinal+=t; else interim+=t;
+      }
+      const ta=document.getElementById('vText'); if(ta) ta.value=recogFinal+interim;
+    };
+    recog.onerror=(e)=>{
+      recogOn=false; micUI(false);
+      if(e.error==='not-allowed') vStatus('麥克風權限被拒，請點文字框改用鍵盤 🎤');
+      else vStatus('聽寫無法使用，請點文字框，用鍵盤的 🎤 唸');
+    };
+    recog.onend=()=>{ recogOn=false; micUI(false);
+      const ta=document.getElementById('vText');
+      if(ta && ta.value.trim()) vStatus('唸完了就按右上「解析」');
+      else vStatus('沒聽到內容，可再按一次麥克風，或用鍵盤 🎤'); };
+    recog.start();
+  }catch(err){ vStatus('聽寫無法使用，請點文字框，用鍵盤的 🎤 唸'); }
+}
+function stopRecog(){ try{ if(recog) recog.stop(); }catch(e){} recogOn=false; micUI(false); }
+function doParseVoice(){
+  stopRecog();
+  const ta=document.getElementById('vText'); const text=(ta?ta.value:'').trim();
+  if(!text){ toast('還沒有內容，請先唸一次'); return; }
+  const btn=document.getElementById('vParse'); btn.disabled=true; btn.textContent='解析中';
+  vStatus('整理中…');
+  api('parseVoice',{text}).then(r=>{
+    if(r&&!r.error){
+      const acct=normAcct(r.accountNumber||'');
+      openForm(null,{
+        bank:r.bank||'', branch:r.branch||'', accountNumber:acct,
+        checkNumber:r.checkNumber||'', dueDate:r.dueDate||'', amount:r.amount!==''?r.amount:'',
+        checkType:'own', drawer:'',
+        customerName:(S.customers[acct]||{}).name||r.customerName||''
+      });
+      if(currentDup()) toast('⚠️ 此支票可能已建檔，請確認');
+      else toast('已帶入，請核對');
+    }else{
+      btn.disabled=false; btn.textContent='解析';
+      const e=r&&r.error;
+      vStatus(e==='NO_KEY'?'尚未設定辨識金鑰':e==='EMPTY'?'內容是空的':'解析失敗，請再唸一次或手動輸入');
+    }
+  }).catch(()=>{ btn.disabled=false; btn.textContent='解析'; vStatus('解析失敗，請再試一次'); });
+}
 document.getElementById('scanFab').addEventListener('click',openScanner);
 
 /* ---------- 渲染 ---------- */
@@ -472,7 +565,7 @@ function openForm(id, prefill){
   document.getElementById('backdrop').classList.add('show');
   document.getElementById('sheet').classList.add('show');
 }
-function closeForm(){ document.getElementById('backdrop').classList.remove('show'); document.getElementById('sheet').classList.remove('show'); }
+function closeForm(){ try{ stopRecog(); }catch(e){} document.getElementById('backdrop').classList.remove('show'); document.getElementById('sheet').classList.remove('show'); }
 document.getElementById('backdrop').addEventListener('click',closeForm);
 let formIsEdit=false;
 function nameSuggestions(){
@@ -546,10 +639,11 @@ function renderForm(isEdit){
 }
 function val(id){const e=document.getElementById(id);return e?e.value:'';}
 /* 重複支票偵測：同票號 + 同帳號（無帳號則比對同銀行）視為可能重複 */
+function normCno(s){ return String(s==null?'':s).replace(/[\s-]/g,'').toUpperCase(); }
 function currentDup(){
-  const cno=(val('i_cno')||'').trim(); if(!cno) return null;
+  const cno=normCno(val('i_cno')); if(!cno) return null;
   const acct=normAcct(val('i_acct')); const bank=(val('i_bank')||'').trim();
-  return S.checks.find(c=>c.id!==formState.id && (c.checkNumber||'').trim()===cno &&
+  return S.checks.find(c=>c.id!==formState.id && normCno(c.checkNumber)===cno &&
     ( (acct && normAcct(c.accountNumber)===acct) || (!acct && bank && (c.bank||'').trim()===bank) ));
 }
 function updateDup(){
@@ -561,6 +655,7 @@ function updateDup(){
 function saveForm(){
   collectForm();
   formState.accountNumber=normAcct(formState.accountNumber);
+  formState.checkNumber=normCno(formState.checkNumber);
   if(formState.checkType!=='third') formState.drawer='';
   if(formState.amount===''||!formState.dueDate){ toast('金額與到期日為必填'); return; }
   const dup=currentDup();
