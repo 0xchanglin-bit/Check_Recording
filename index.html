@@ -188,8 +188,18 @@ main{ flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch; width:10
 .scanner.show{ display:flex; }
 .scanner video, .scanner .freeze{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
 .scan-mask{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
-.aperture{ width:88vw; max-width:520px; aspect-ratio:2.15/1; border-radius:18px;
+/* 直立畫面＝請使用者把手機橫拿（手機頂端朝左）：取景框直立、文字轉 90°。
+   畫面真的轉成橫向時（.land）則用一般橫式版面。 */
+.aperture{ width:auto; aspect-ratio:1/2.15; border-radius:18px;
+  height:min(calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 200px), calc((100vw - 110px) * 2.15));
   box-shadow:0 0 0 100vmax rgba(0,0,0,.5); position:relative; transition:box-shadow .2s; }
+.scanner.land .aperture{ aspect-ratio:2.15/1; height:min(calc(100dvh - 90px), calc((100vw - 260px) / 2.15)); }
+.aperture .status-pill, .aperture .scan-manual{ position:absolute; top:50%; white-space:nowrap; }
+.aperture .status-pill{ left:calc((100% - 100vw) / 4); transform:translate(-50%,-50%) rotate(90deg); }
+.aperture .scan-manual{ left:calc(100% + (100vw - 100%) / 4); transform:translate(-50%,-50%) rotate(90deg); }
+.scanner.land .aperture .status-pill{ left:50%; top:calc(100% + (100dvh - 100%) / 4); transform:translate(-50%,-50%); }
+.scanner.land .aperture .scan-manual{ left:50%; top:calc((100% - 100dvh) / 4); transform:translate(-50%,-50%); }
+.scanner:not(.land) .scan-top .title{ visibility:hidden; }
 .aperture.lock{ box-shadow:0 0 0 100vmax rgba(0,0,0,.32); }
 .corner{ position:absolute; width:30px; height:30px; border:3px solid #fff; transition:border-color .2s; }
 .aperture.lock .corner{ border-color:var(--green); }
@@ -203,12 +213,14 @@ main{ flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch; width:10
 .round-glass{ width:40px; height:40px; border-radius:50%; border:none; display:grid; place-items:center; color:#fff;
   background:rgba(255,255,255,.16); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); }
 .scan-bottom{ position:absolute; bottom:0; left:0; right:0; z-index:2; display:flex; flex-direction:column; align-items:center;
-  gap:16px; padding:0 20px calc(env(safe-area-inset-bottom) + 26px); }
+  gap:16px; padding:0 20px calc(env(safe-area-inset-bottom) + 20px); }
+.scanner.land .scan-top{ bottom:0; right:auto; flex-direction:column; padding:14px 0 14px calc(env(safe-area-inset-left) + 16px); }
+.scanner.land .scan-bottom{ top:0; left:auto; justify-content:center; padding:0 calc(env(safe-area-inset-right) + 20px) 0 0; }
 .status-pill{ color:#fff; font-size:14.5px; font-weight:600; padding:9px 18px; border-radius:22px;
   background:rgba(0,0,0,.45); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); display:inline-flex; align-items:center; gap:8px; }
 .shutter{ width:74px; height:74px; border-radius:50%; border:5px solid rgba(255,255,255,.9); background:rgba(255,255,255,.25); }
 .shutter:active{ transform:scale(.94); }
-.scan-manual{ color:#fff; opacity:.85; font-size:15px; background:none; border:none; text-decoration:underline; }
+.scan-manual{ color:#fff; opacity:.85; font-size:15px; background:none; border:none; text-decoration:underline; z-index:2; }
 .scan-err{ position:absolute; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center; gap:16px;
   color:#fff; text-align:center; padding:30px; z-index:3; }
 .scan-err.show{ display:flex; }
@@ -228,6 +240,11 @@ main{ flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch; width:10
 .toast.show{ opacity:1; }
 .setup-warn{ margin:14px 16px 0; padding:12px 16px; border-radius:16px; font-size:13px; color:var(--label2);
   background:var(--fill); }
+.sync-bar{ flex-shrink:0; display:flex; align-items:center; gap:6px; margin:8px 16px 0; padding:6px 8px 6px 14px; border-radius:14px;
+  font-size:13px; font-weight:600; color:#B25000; background:rgba(255,149,0,.16); border:.5px solid rgba(255,149,0,.4); }
+.sync-bar span{ flex:1; }
+.sync-bar .link-btn{ font-size:14px; font-weight:700; }
+@media (prefers-color-scheme:dark){ .sync-bar{ color:#FFB765; } }
 .dup-warn{ margin:12px 16px 0; padding:11px 14px; border-radius:14px; font-size:13.5px; font-weight:600;
   color:#B25000; background:rgba(255,149,0,.16); border:.5px solid rgba(255,149,0,.4); }
 @media (prefers-color-scheme:dark){ .dup-warn{ color:#FFB765; } }
@@ -249,6 +266,7 @@ main{ flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch; width:10
   </div>
 </div></div>
 
+<div class="sync-bar hidden" id="syncBar"></div>
 <main id="view"><div class="empty"><span class="spinner dark"></span></div></main>
 
 <div class="dock">
@@ -272,6 +290,8 @@ main{ flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch; width:10
   <canvas id="freeze" class="freeze hidden"></canvas>
   <div class="scan-mask"><div class="aperture" id="aperture">
     <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+    <div class="status-pill" id="statusPill">將支票對齊框內</div>
+    <button class="scan-manual" id="scanManual">改用手動輸入</button>
   </div></div>
   <div class="scan-top">
     <button class="round-glass" id="scanClose" aria-label="關閉"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
@@ -279,9 +299,7 @@ main{ flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch; width:10
     <button class="round-glass" id="torchBtn" aria-label="手電筒"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2h6l-1 7 3 3-5 10-1-9-3-2z"/></svg></button>
   </div>
   <div class="scan-bottom" id="scanBottom">
-    <div class="status-pill" id="statusPill">將支票對齊框內</div>
     <button class="shutter" id="shutter" aria-label="擷取"></button>
-    <button class="scan-manual" id="scanManual">改用手動輸入</button>
   </div>
   <div class="scan-err" id="scanErr">
     <div id="scanErrMsg">無法啟用相機</div>
@@ -325,6 +343,10 @@ let S={ checks:[], customers:{}, tab:'calendar' };
 let calCursor=(function(){const d=new Date();return{y:d.getFullYear(),m:d.getMonth()};})();
 let calBasis='dueDate', calSel=today();
 let listQ='', listFilter='all';
+/* 清單排序：dir 1＝早→晚、-1＝晚→早；選擇記在這支手機上 */
+const SORT_KEYS={ dueDate:{l:'到期日',dir:1}, receivedDate:{l:'收票日',dir:-1}, createdAt:{l:'記錄時間',dir:-1} };
+let listSort=(function(){ try{ const s=JSON.parse(localStorage.getItem('checkcal-sort')||'null');
+  if(s&&SORT_KEYS[s.key]&&(s.dir===1||s.dir===-1)) return s; }catch(e){} return {key:'dueDate',dir:1}; })();
 
 /* ---------- 工具 ---------- */
 function today(){const d=new Date();return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate());}
@@ -342,9 +364,83 @@ function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.
   clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2000); }
 function haptic(){ if(navigator.vibrate) try{navigator.vibrate(10);}catch(e){} }
 
+/* ---------- 同步佇列 ----------
+   變更先套到畫面（applyLocal），再排進佇列背景寫到後端。佇列存在這支手機上，
+   App 被關掉也不會遺失，下次打開會補送。各動作都以 id 覆寫，重送也安全。 */
+const OUTBOX_KEY='checkcal-outbox';
+let outbox=(function(){ try{ const o=JSON.parse(localStorage.getItem(OUTBOX_KEY)||'[]'); return Array.isArray(o)?o:[]; }catch(e){ return []; } })();
+let flushing=false, syncErr=null;
+function saveOutbox(){ try{ localStorage.setItem(OUTBOX_KEY,JSON.stringify(outbox)); }catch(e){} }
+function applyLocal(action,p){
+  if(action==='saveCheck'){
+    const c=clone(p.check), i=S.checks.findIndex(x=>x.id===c.id);
+    if(i>=0) S.checks[i]=c; else S.checks.push(c);
+    const acct=normAcct(c.accountNumber);
+    if(c.checkType!=='third' && acct && c.customerName){ const cur=S.customers[acct]||{};
+      S.customers[acct]={ name:c.customerName, bank:c.bank||cur.bank||'', branch:c.branch||cur.branch||'' }; }
+  }else if(action==='deleteCheck') S.checks=S.checks.filter(x=>x.id!==p.id);
+  else if(action==='setCashed'){ const c=S.checks.find(x=>x.id===p.id); if(c) c.cashed=!!p.cashed; }
+  else if(action==='renameCustomer'){ const key=normAcct(p.accountNumber), cur=S.customers[key]||{};
+    S.customers[key]=Object.assign({bank:'',branch:''},cur,{name:p.name||cur.name||''});
+    S.checks.forEach(x=>{ if(normAcct(x.accountNumber)===key) x.customerName=p.name; }); }
+}
+let commitSeq=0;
+function commit(action,payload){
+  commitSeq++; applyLocal(action,payload); render();
+  outbox.push({action,payload}); saveOutbox(); flush();
+}
+async function flush(){
+  if(flushing||!outbox.length) return;
+  flushing=true; let last=null;
+  try{
+    while(outbox.length){
+      const r=await api(outbox[0].action,Object.assign({lite:true},outbox[0].payload));
+      if(!r||r.error){ syncErr=(r&&r.error)||'NETWORK'; break; }
+      outbox.shift(); saveOutbox(); syncErr=null; last=r;
+    }
+  }finally{ flushing=false; }
+  updateSyncBar();
+  // 舊版後端會回傳整份資料：佇列清空時拿來對帳（內容一樣就不重畫，避免打斷輸入）
+  if(!outbox.length && last && last.checks){
+    const cur=JSON.stringify({checks:S.checks,customers:S.customers});
+    if(cur!==JSON.stringify({checks:last.checks,customers:last.customers})) refresh(last);
+  }
+}
+function updateSyncBar(){
+  const bar=document.getElementById('syncBar');
+  if(!outbox.length||!syncErr){ bar.classList.add('hidden'); return; }
+  const why=syncErr==='NETWORK'?'連不到網路或後端':syncErr==='UNKNOWN_ACTION'?'後端版本太舊':'後端錯誤';
+  bar.innerHTML='<span>⚠️ 有 '+outbox.length+' 筆變更還沒存到雲端（'+why+'）</span>'
+    +'<button class="link-btn" id="syncRetry">重試</button><button class="link-btn" id="syncDrop" style="color:var(--red)">捨棄</button>';
+  bar.classList.remove('hidden');
+  document.getElementById('syncRetry').onclick=()=>{ bar.classList.add('hidden'); flush(); };
+  document.getElementById('syncDrop').onclick=()=>{
+    if(!confirm('捨棄這 '+outbox.length+' 筆還沒存到雲端的變更？畫面會改回雲端上的資料。')) return;
+    outbox=[]; saveOutbox(); syncErr=null; updateSyncBar();
+    api('getData').then(refresh);
+  };
+}
+/* 多支手機共用：切回 App 時先送完自己的變更，再抓雲端最新資料（有差異才重畫） */
+let pulling=false;
+async function pull(){
+  if(pulling) return; pulling=true;
+  try{
+    await flush();
+    if(outbox.length) return;
+    const seq=commitSeq, d=await api('getData');
+    if(!d||d.error||seq!==commitSeq) return;   // 抓的期間又有新變更，這份資料可能是舊的，等下一次
+    if(JSON.stringify({checks:S.checks,customers:S.customers})!==JSON.stringify({checks:d.checks,customers:d.customers})) refresh(d);
+  }finally{ pulling=false; }
+}
+window.addEventListener('online',pull);
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') pull(); });
+
 /* ---------- 載入 ---------- */
-api('getData').then(d=>{ if(d&&!d.error){S.checks=d.checks||[]; S.customers=d.customers||{};} render(); })
-  .catch(()=>render());
+api('getData').then(d=>{
+  if(d&&!d.error){S.checks=d.checks||[]; S.customers=d.customers||{};}
+  outbox.forEach(op=>applyLocal(op.action,op.payload));   // 上次沒送完的變更先疊上去
+  render(); flush();
+}).catch(()=>render());
 function refresh(d){ if(d&&!d.error){S.checks=d.checks||[]; S.customers=d.customers||{};} render(); }
 
 /* ---------- 分頁 ---------- */
@@ -530,21 +626,38 @@ function renderCalendar(){
     +'<div class="section-hd">'+calSel+'（'+(calBasis==='dueDate'?'到期':'收票')+'）· '+sel.length+' 張 · NT$ '+money(selTot)+'</div>'
     +(sel.length?'<div class="card">'+sel.map(checkRowHTML).join('')+'</div>':'<div class="empty">這天沒有支票</div>');
 }
+/* 日期轉成時間戳比較；createdAt 被 Sheets 轉成日期格式時字串會變，所以一律 parse */
+function sortVal(c,k){ const v=c[k]; if(!v) return null;
+  const t=Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(v)?v+'T00:00:00':v); return isNaN(t)?null:t; }
+function sortRows(rows){
+  const k=listSort.key, dir=listSort.dir;
+  return rows.sort((a,b)=>{
+    const x=sortVal(a,k), y=sortVal(b,k);
+    if(x!==y){ if(x===null) return 1; if(y===null) return -1; return (x-y)*dir; }   // 沒填日期的一律排最後
+    return (sortVal(b,'createdAt')||0)-(sortVal(a,'createdAt')||0);
+  });
+}
+function sortSegHTML(){
+  return Object.keys(SORT_KEYS).map(k=>'<button class="'+(listSort.key===k?'on':'')+'" data-sort="'+k+'">'
+    +SORT_KEYS[k].l+(listSort.key===k?(listSort.dir===1?' ↑':' ↓'):'')+'</button>').join('');
+}
 function listResultsHTML(){
-  let rows=S.checks.slice().sort((a,b)=>(a.dueDate||'').localeCompare(b.dueDate||''));
+  let rows=sortRows(S.checks.slice());
   if(listFilter==='cashed') rows=rows.filter(c=>c.cashed);
   else if(listFilter==='upcoming') rows=rows.filter(c=>!c.cashed&&['upcoming','today'].includes(statusOf(c)));
   else if(listFilter==='overdue') rows=rows.filter(c=>statusOf(c)==='overdue');
   if(listQ.trim()){const q=listQ.trim().toLowerCase();
     rows=rows.filter(c=>[c.customerName,c.bank,c.branch,c.accountNumber,c.checkNumber].some(v=>String(v||'').toLowerCase().includes(q)));}
   const tot=rows.reduce((s,c)=>s+(Number(c.amount)||0),0);
-  return rows.length?'<div class="totalbar">共 '+rows.length+' 張 · 合計 NT$ '+money(tot)+'</div><div class="card" style="margin-top:8px">'+rows.map(checkRowHTML).join('')+'</div>':'<div class="empty">沒有符合的支票</div>';
+  const sortNote='依'+SORT_KEYS[listSort.key].l+'（'+(listSort.dir===1?'早→晚':'晚→早')+'）';
+  return rows.length?'<div class="totalbar">共 '+rows.length+' 張 · 合計 NT$ '+money(tot)+' · '+sortNote+'</div><div class="card" style="margin-top:8px">'+rows.map(checkRowHTML).join('')+'</div>':'<div class="empty">沒有符合的支票</div>';
 }
 function renderList(){
   return '<div class="searchwrap"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>'
       +'<input id="searchInput" placeholder="搜尋 客戶／銀行／帳號／票號" value="'+esc(listQ)+'"></div>'
     +'<div class="seg" id="listSeg">'+[['all','全部'],['upcoming','待兌現'],['overdue','逾期'],['cashed','已兌現']]
       .map(x=>'<button class="'+(listFilter===x[0]?'on':'')+'" data-filter="'+x[0]+'">'+x[1]+'</button>').join('')+'</div>'
+    +'<div class="seg" id="sortSeg" style="margin-top:8px">'+sortSegHTML()+'</div>'
     +'<div id="listResults">'+listResultsHTML()+'</div>';
 }
 function renderCustomers(){
@@ -581,7 +694,7 @@ function renderCustomers(){
 function bindRows(scope){
   scope.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>openForm(b.dataset.open));
   scope.querySelectorAll('[data-tick]').forEach(b=>b.onclick=()=>{const id=b.dataset.tick;const c=S.checks.find(x=>x.id===id);
-    api('setCashed',{id,cashed:!c.cashed}).then(refresh);});
+    haptic(); commit('setCashed',{id,cashed:!c.cashed});});
 }
 function bind(){
   const v=document.getElementById('view');
@@ -596,15 +709,24 @@ function bind(){
     const seg=document.getElementById('listSeg'); if(seg) seg.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
     const res=document.getElementById('listResults'); if(res){ res.innerHTML=listResultsHTML(); bindRows(res); }
   });
+  // 排序：點同一個就反轉方向，換欄位就用該欄位的預設方向
+  const sortSeg=v.querySelector('#sortSeg');
+  if(sortSeg) sortSeg.onclick=(e)=>{
+    const b=e.target.closest('[data-sort]'); if(!b) return;
+    const k=b.dataset.sort;
+    listSort = listSort.key===k ? {key:k,dir:-listSort.dir} : {key:k,dir:SORT_KEYS[k].dir};
+    try{ localStorage.setItem('checkcal-sort',JSON.stringify(listSort)); }catch(err){}
+    sortSeg.innerHTML=sortSegHTML();
+    const res=document.getElementById('listResults'); if(res){ res.innerHTML=listResultsHTML(); bindRows(res); }
+  };
   // 改名：合併同名客戶的所有帳號一起改
   v.querySelectorAll('[data-rename]').forEach(b=>b.onclick=async(e)=>{
     e.stopPropagation();
     const name=b.dataset.rename;
     const accts=Object.keys(S.customers).filter(a=>(S.customers[a].name||'（未命名）')===name);
     const nn=prompt('客戶名稱',name); if(nn==null) return;
-    const val=nn.trim(); let last;
-    for(const a of accts){ last=await api('renameCustomer',{accountNumber:a,name:val}); }
-    refresh(last);
+    const val=nn.trim();
+    accts.forEach(a=>commit('renameCustomer',{accountNumber:a,name:val}));
   });
   // 客戶多帳號展開／收合
   v.querySelectorAll('[data-cust-toggle]').forEach(h=>h.onclick=(e)=>{
@@ -690,7 +812,7 @@ function renderForm(isEdit){
   document.getElementById('cancelBtn').onclick=closeForm;
   document.getElementById('saveBtn').onclick=saveForm;
   document.querySelectorAll('[data-ctype]').forEach(b=>b.onclick=()=>{ collectForm(); formState.checkType=b.dataset.ctype; renderForm(formIsEdit); });
-  if(isEdit) document.getElementById('delBtn').onclick=()=>{ if(confirm('確定刪除這張支票？')) api('deleteCheck',{id:formState.id}).then(d=>{refresh(d);closeForm();}); };
+  if(isEdit) document.getElementById('delBtn').onclick=()=>{ if(confirm('確定刪除這張支票？')){ commit('deleteCheck',{id:formState.id}); closeForm(); toast('已刪除'); } };
   document.getElementById('i_acct').oninput=e=>{
     formState.accountNumber=e.target.value;
     updateDup();
@@ -726,24 +848,34 @@ function saveForm(){
   if(formState.amount===''||!formState.dueDate){ toast('金額與到期日為必填'); return; }
   const dup=currentDup();
   if(dup && !confirm('這張支票可能已建檔（票號 '+(formState.checkNumber||'')+'，客戶 '+(dup.customerName||'')+'）。仍要儲存嗎？')) return;
-  const btn=document.getElementById('saveBtn'); btn.disabled=true; btn.textContent='儲存中';
-  api('saveCheck',{check:formState}).then(d=>{ refresh(d); closeForm(); toast('已儲存'); })
-    .catch(()=>{ btn.disabled=false; btn.textContent='儲存'; toast('儲存失敗'); });
+  if(!formState.createdAt) formState.createdAt=new Date().toISOString();
+  commit('saveCheck',{check:clone(formState)});
+  closeForm(); toast('已儲存');
 }
 
 /* ================= 即時鏡頭掃描器 ================= */
 let stream=null, rafId=null, prevGray=null, steady=0, started=0, torchOn=false, busy=false, scanToken=0;
 const SAMPLE_W=96, SAMPLE_H=Math.round(96/2.15);
 const MOTION_MAX=6.5, SHARP_MIN=7.5, STEADY_HITS=7;
+/* 畫面直立時請使用者橫拿手機（頂端朝左），影像中的支票是轉了 90° 的，送出前要轉正 */
+let scanTall=true;
+function alignMsg(){ return scanTall?'手機橫拿，將支票對齊框內':'將支票對齊框內'; }
+function updateScanMode(){
+  const tall=innerHeight>=innerWidth;
+  if(tall!==scanTall){ scanTall=tall; prevGray=null; steady=0; }
+  document.getElementById('scanner').classList.toggle('land',!scanTall);
+}
+window.addEventListener('resize',()=>{ if(document.getElementById('scanner').classList.contains('show')) updateScanMode(); });
 
 async function openScanner(){
   scanToken++;
   const sc=document.getElementById('scanner'); sc.classList.add('show');
+  updateScanMode();
   document.getElementById('scanErr').classList.remove('show');
   document.getElementById('scanBottom').style.display='flex';
   document.getElementById('freeze').classList.add('hidden');
   document.getElementById('video').classList.remove('hidden');
-  setStatus('將支票對齊框內', false);
+  setStatus(alignMsg(), false);
   busy=false; steady=0; prevGray=null; started=Date.now();
   try{
     stream=await navigator.mediaDevices.getUserMedia({ video:{ facingMode:{ideal:'environment'}, width:{ideal:1920}, height:{ideal:1080} }, audio:false });
@@ -777,17 +909,32 @@ function setupTorch(){
   btn.onclick=async()=>{ torchOn=!torchOn; try{ await track.applyConstraints({advanced:[{torch:torchOn}]}); btn.style.background=torchOn?'rgba(255,255,255,.45)':'rgba(255,255,255,.16)'; }catch(e){} };
 }
 
+/* 取景框在影片原始畫素中的位置（影片是 object-fit:cover，要換算），四周多留一點邊 */
+function apertureCrop(v){
+  const vw=v.videoWidth, vh=v.videoHeight, vr=v.getBoundingClientRect();
+  const r=document.getElementById('aperture').getBoundingClientRect();
+  const k=Math.max(vr.width/vw, vr.height/vh);
+  const ox=vr.left+(vr.width-vw*k)/2, oy=vr.top+(vr.height-vh*k)/2;
+  const pad=0.05;
+  const x0=Math.max(0,(r.left-r.width*pad-ox)/k), y0=Math.max(0,(r.top-r.height*pad-oy)/k);
+  const x1=Math.min(vw,(r.right+r.width*pad-ox)/k), y1=Math.min(vh,(r.bottom+r.height*pad-oy)/k);
+  return { sx:x0, sy:y0, sw:x1-x0, sh:y1-y0 };
+}
+/* 把裁切區畫到 ctx 上；tall 時逆時針轉 90° 讓支票轉正。outW×outH 是轉正後的尺寸 */
+function drawCrop(ctx, v, c, outW, outH, tall){
+  if(tall){ ctx.setTransform(0,-1,1,0,0,outH); ctx.drawImage(v, c.sx, c.sy, c.sw, c.sh, 0, 0, outH, outW); }
+  else { ctx.setTransform(1,0,0,1,0,0); ctx.drawImage(v, c.sx, c.sy, c.sw, c.sh, 0, 0, outW, outH); }
+  ctx.setTransform(1,0,0,1,0,0);
+}
+
 const sctx=(function(){ const c=document.createElement('canvas'); c.width=SAMPLE_W; c.height=SAMPLE_H; return c.getContext('2d',{willReadFrequently:true}); })();
 function loop(){
   rafId=requestAnimationFrame(loop);
   if(busy) return;
   const v=document.getElementById('video');
   if(!v.videoWidth) return;
-  // 取畫面中央、與取景框同比例的區域來分析
-  const vw=v.videoWidth, vh=v.videoHeight, ar=2.15;
-  let cw=vw, ch=vw/ar; if(ch>vh){ ch=vh; cw=vh*ar; }
-  const sx=(vw-cw)/2, sy=(vh-ch)/2;
-  sctx.drawImage(v, sx, sy, cw, ch, 0, 0, SAMPLE_W, SAMPLE_H);
+  // 只分析取景框內的區域（轉正後再算，門檻值兩種拿法通用）
+  drawCrop(sctx, v, apertureCrop(v), SAMPLE_W, SAMPLE_H, scanTall);
   const d=sctx.getImageData(0,0,SAMPLE_W,SAMPLE_H).data;
   const gray=new Float32Array(SAMPLE_W*SAMPLE_H);
   for(let i=0,j=0;i<d.length;i+=4,j++) gray[j]=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
@@ -802,11 +949,11 @@ function loop(){
 
   const aligned = sharp>SHARP_MIN && motion<MOTION_MAX;
   document.getElementById('aperture').classList.toggle('lock', aligned && steady>2);
-  if(Date.now()-started<1200){ setStatus('將支票對齊框內',false); return; }
+  if(Date.now()-started<1200){ setStatus(alignMsg(),false); return; }
   if(aligned){ steady++;
     setStatus(steady<STEADY_HITS?'偵測到支票，請拿穩…':'擷取中…', true);
     if(steady>=STEADY_HITS) capture();
-  }else{ steady=0; setStatus(sharp<=SHARP_MIN?'將支票對齊框內':'請拿穩一點',false); }
+  }else{ steady=0; setStatus(sharp<=SHARP_MIN?alignMsg():'請拿穩一點',false); }
 }
 
 function capture(){
@@ -814,13 +961,19 @@ function capture(){
   const myToken=scanToken;
   cancelAnimationFrame(rafId);
   const v=document.getElementById('video');
+  // 只送取景框內的區域，轉正後長邊最多 1600px（要在影片隱藏前量位置）
+  const crop=apertureCrop(v);
+  const ks=Math.min(1,1600/Math.max(crop.sw,crop.sh));
+  const w=Math.round((scanTall?crop.sh:crop.sw)*ks), h=Math.round((scanTall?crop.sw:crop.sh)*ks);
+  const up=document.createElement('canvas'); up.width=w; up.height=h;
+  drawCrop(up.getContext('2d'), v, crop, w, h, scanTall);
+  const b64=up.toDataURL('image/jpeg',0.85).split(',')[1];
   const max=1500, sc=Math.min(1,max/Math.max(v.videoWidth,v.videoHeight));
   const cv=document.getElementById('freeze'); cv.width=Math.round(v.videoWidth*sc); cv.height=Math.round(v.videoHeight*sc);
   const ctx=cv.getContext('2d'); ctx.drawImage(v,0,0,cv.width,cv.height);
   cv.classList.remove('hidden'); v.classList.add('hidden');
   document.getElementById('aperture').classList.add('lock');
   setStatus('辨識中…', true);
-  const b64=cv.toDataURL('image/jpeg',0.85).split(',')[1];
   api('scan',{base64:b64,mediaType:'image/jpeg'}).then(r=>{
     if(myToken!==scanToken) return;   // 已取消／關閉，忽略這筆結果
     if(r&&!r.error){

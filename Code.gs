@@ -24,6 +24,9 @@ function doPost(e) {
       case 'parseVoice':     out = parseVoice(req.text); break;
       default:               out = { error: 'UNKNOWN_ACTION' };
     }
+    // 寫入類動作：新版前端帶 lite，只回 ok，省掉重讀兩張表；舊版前端照舊拿整份資料
+    if (!out.error && ['saveCheck','deleteCheck','setCashed','renameCustomer'].indexOf(req.action) >= 0)
+      out = req.lite ? { ok: true } : getData();
   } catch (err) { out = { error: String(err) }; }
   return json_(out);
 }
@@ -59,7 +62,8 @@ function getData() {
       accountNumber: String(r[3] || ''), checkNumber: String(r[4] || ''),
       dueDate: d2s_(r[5]), amount: r[6] === '' ? '' : Number(r[6]),
       receivedDate: d2s_(r[7]), customerName: String(r[8] || ''),
-      cashed: r[9] === true || r[9] === 'TRUE' || r[9] === 'true', createdAt: String(r[10] || ''),
+      cashed: r[9] === true || r[9] === 'TRUE' || r[9] === 'true',
+      createdAt: r[10] instanceof Date ? r[10].toISOString() : String(r[10] || ''),   // Sheets 可能把 ISO 字串轉成日期
       checkType: String(r[11] || 'own'), drawer: String(r[12] || '')
     });
   }
@@ -71,9 +75,11 @@ function getData() {
   return { checks: checks, customers: customers };
 }
 
+/* 只讀第一欄來找，不把整張表讀出來（帳號在 Sheets 裡可能被存成數字，所以比對 String 值而非顯示文字） */
 function findRow_(sh, id) {
-  var vals = sh.getDataRange().getValues();
-  for (var i = 1; i < vals.length; i++) if (String(vals[i][0]) === String(id)) return i + 1;
+  var last = sh.getLastRow(); if (last < 2) return -1;
+  var vals = sh.getRange(2, 1, last - 1, 1).getValues();
+  for (var i = 0; i < vals.length; i++) if (String(vals[i][0]) === String(id)) return i + 2;
   return -1;
 }
 function upsertCustomer_(acct, name, bank, branch) {
@@ -81,7 +87,9 @@ function upsertCustomer_(acct, name, bank, branch) {
   var sh = sheet_(SHEET_CUST, CUST_HEADERS), r = findRow_(sh, key);
   if (r > 0) {
     var cur = sh.getRange(r, 1, 1, CUST_HEADERS.length).getValues()[0];
-    sh.getRange(r, 1, 1, CUST_HEADERS.length).setValues([[key, name || cur[1] || '', bank || cur[2] || '', branch || cur[3] || '']]);
+    var next = [key, name || cur[1] || '', bank || cur[2] || '', branch || cur[3] || ''];
+    if (String(next[1]) === String(cur[1]) && String(next[2]) === String(cur[2]) && String(next[3]) === String(cur[3])) return;  // 沒變就不寫
+    sh.getRange(r, 1, 1, CUST_HEADERS.length).setValues([next]);
   } else sh.appendRow([key, name || '', bank || '', branch || '']);
 }
 
@@ -99,17 +107,17 @@ function saveCheck(chk) {
     if (r > 0) sh.getRange(r, 1, 1, CHECK_HEADERS.length).setValues([row]); else sh.appendRow(row);
     // 只有「自票」才把帳號存成客戶；客票的帳號屬票主，不留存
     if (type !== 'third' && acct && chk.customerName) upsertCustomer_(acct, chk.customerName, chk.bank, chk.branch);
-    return getData();
+    return {};
   } finally { lock.releaseLock(); }
 }
 function deleteCheck(id) {
   var lock = LockService.getScriptLock(); lock.tryLock(20000);
-  try { var sh = sheet_(SHEET_CHECKS, CHECK_HEADERS), r = findRow_(sh, id); if (r > 0) sh.deleteRow(r); return getData(); }
+  try { var sh = sheet_(SHEET_CHECKS, CHECK_HEADERS), r = findRow_(sh, id); if (r > 0) sh.deleteRow(r); return {}; }
   finally { lock.releaseLock(); }
 }
 function setCashed(id, cashed) {
   var lock = LockService.getScriptLock(); lock.tryLock(20000);
-  try { var sh = sheet_(SHEET_CHECKS, CHECK_HEADERS), r = findRow_(sh, id); if (r > 0) sh.getRange(r, 10).setValue(!!cashed); return getData(); }
+  try { var sh = sheet_(SHEET_CHECKS, CHECK_HEADERS), r = findRow_(sh, id); if (r > 0) sh.getRange(r, 10).setValue(!!cashed); return {}; }
   finally { lock.releaseLock(); }
 }
 function renameCustomer(acct, name) {
@@ -117,9 +125,13 @@ function renameCustomer(acct, name) {
   try {
     var key = normAcct_(acct);
     upsertCustomer_(key, name);
-    var sh = sheet_(SHEET_CHECKS, CHECK_HEADERS), vals = sh.getDataRange().getValues();
-    for (var i = 1; i < vals.length; i++) if (normAcct_(vals[i][3]) === key) sh.getRange(i + 1, 9).setValue(name);
-    return getData();
+    // 只讀帳號、客戶名兩欄，改完一次寫回
+    var sh = sheet_(SHEET_CHECKS, CHECK_HEADERS), n = sh.getLastRow() - 1;
+    if (n < 1) return {};
+    var accts = sh.getRange(2, 4, n, 1).getValues(), names = sh.getRange(2, 9, n, 1).getValues(), changed = false;
+    for (var i = 0; i < n; i++) if (normAcct_(accts[i][0]) === key && names[i][0] !== name) { names[i][0] = name; changed = true; }
+    if (changed) sh.getRange(2, 9, n, 1).setValues(names);
+    return {};
   } finally { lock.releaseLock(); }
 }
 
@@ -127,7 +139,8 @@ function renameCustomer(acct, name) {
 function scanCheck(base64, mediaType) {
   var key = PropertiesService.getScriptProperties().getProperty('ANTHROPIC_API_KEY');
   if (!key) return { error: 'NO_KEY' };
-  var prompt = '請閱讀這張台灣的銀行支票（票據）影像，擷取欄位後只回傳一個 JSON 物件，不要有任何說明文字或 markdown。格式：'
+  var prompt = '請閱讀這張台灣的銀行支票（票據）影像，擷取欄位後只回傳一個 JSON 物件，不要有任何說明文字或 markdown。'
+    + '影像可能是旋轉 90 度或上下顛倒的，請先判斷正確方向再讀取。格式：'
     + '{"bank":"銀行名稱","branch":"分行","accountNumber":"付款人帳號","checkNumber":"支票號碼/票號（可能是英文字母加數字，如 YM0782517，請完整保留字母並轉大寫）","dueDate":"到期日 YYYY-MM-DD(民國年請換算成西元年)","amount":數字}。'
     + '無法辨識的欄位填空字串或 null。';
   var payload = {
