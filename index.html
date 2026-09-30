@@ -97,7 +97,9 @@ main{ flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch; width:10
 .dow{ display:grid; grid-template-columns:repeat(7,1fr); }
 .dow span{ text-align:center; font-size:11px; color:var(--label2); font-weight:600; padding-bottom:6px; }
 .grid{ display:grid; grid-template-columns:repeat(7,1fr); }
-.cell{ aspect-ratio:1/1.18; border:none; background:none; padding:1px; display:flex; flex-direction:column; align-items:center; gap:2px; }
+/* 日期格高度直接算（格寬 = 日曆內寬 / 7），不用 aspect-ratio：
+   iPhone Safari 轉向後 aspect-ratio 的格子不一定會重算，日曆會破版 */
+.cell{ height:calc((min(100vw, 620px) - 52px) / 7 * 1.18); border:none; background:none; padding:1px; display:flex; flex-direction:column; align-items:center; gap:2px; }
 .cell .dnum{ width:30px; height:30px; display:grid; place-items:center; border-radius:50%; font-size:15px; font-weight:500; }
 .cell.today .dnum{ color:var(--blue); font-weight:750; }
 .cell.sel .dnum{ background:var(--blue); color:#fff; font-weight:650; box-shadow:0 3px 10px rgba(10,132,255,.45); }
@@ -1014,7 +1016,7 @@ function onRotate(){
   rotTimers.forEach(clearTimeout);
   const vp=document.querySelector('meta[name=viewport]');
   vp.setAttribute('content', VIEWPORT.replace('maximum-scale=1','maximum-scale=1.01'));
-  const settle=()=>{ vp.setAttribute('content', VIEWPORT); syncAppHeight(); lastW=innerWidth; window.scrollTo(0,0); };
+  const settle=()=>{ vp.setAttribute('content', VIEWPORT); syncAppHeight(); lastW=innerWidth; window.scrollTo(0,0); render(); };   // 重畫整頁，讓版面用新尺寸重新排
   rotTimers=[60,300,800].map(ms=>setTimeout(settle,ms));
 }
 syncAppHeight();
