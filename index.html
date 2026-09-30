@@ -35,7 +35,7 @@
 *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 html{ height:100%; }
 body{
-  margin:0; height:100vh; height:100dvh; overflow:hidden; display:flex; flex-direction:column;
+  margin:0; height:100vh; height:100dvh; height:var(--app-h,100dvh); overflow:hidden; display:flex; flex-direction:column;
   background:var(--bg); color:var(--label);
   font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','SF Pro Display','Helvetica Neue','Noto Sans TC',sans-serif;
   font-size:17px; line-height:1.35; -webkit-font-smoothing:antialiased;
@@ -153,7 +153,7 @@ main{ flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch; width:10
 .backdrop.show{ opacity:1; pointer-events:auto; }
 .sheet{ position:fixed; left:0; right:0; bottom:0; z-index:45; display:flex; flex-direction:column;
   max-height:calc(100vh - env(safe-area-inset-top) - 8px);
-  max-height:calc(100dvh - env(safe-area-inset-top) - 8px);
+  max-height:calc(var(--app-h,100dvh) - env(safe-area-inset-top) - 8px);
   border-radius:26px 26px 0 0; background:var(--bg);
   transform:translateY(102%); transition:transform .38s cubic-bezier(.32,.72,0,1); }
 .sheet.show{ transform:translateY(0); }
@@ -189,17 +189,19 @@ main{ flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch; width:10
 .scanner video, .scanner .freeze{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
 .scan-mask{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
 /* 直立畫面＝請使用者把手機橫拿（手機頂端朝左）：取景框直立、文字轉 90°。
-   畫面真的轉成橫向時（.land）則用一般橫式版面。 */
+   畫面真的轉成橫向時（手機沒開方向鎖定）改用一般橫式版面，直接用 media query 判斷，不等 JS。 */
 .aperture{ width:auto; aspect-ratio:1/2.15; border-radius:18px;
-  height:min(calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 200px), calc((100vw - 110px) * 2.15));
+  height:min(calc(var(--app-h,100dvh) - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 200px), calc((100vw - 110px) * 2.15));
   box-shadow:0 0 0 100vmax rgba(0,0,0,.5); position:relative; transition:box-shadow .2s; }
-.scanner.land .aperture{ aspect-ratio:2.15/1; height:min(calc(100dvh - 90px), calc((100vw - 260px) / 2.15)); }
 .aperture .status-pill, .aperture .scan-manual{ position:absolute; top:50%; white-space:nowrap; }
 .aperture .status-pill{ left:calc((100% - 100vw) / 4); transform:translate(-50%,-50%) rotate(90deg); }
 .aperture .scan-manual{ left:calc(100% + (100vw - 100%) / 4); transform:translate(-50%,-50%) rotate(90deg); }
-.scanner.land .aperture .status-pill{ left:50%; top:calc(100% + (100dvh - 100%) / 4); transform:translate(-50%,-50%); }
-.scanner.land .aperture .scan-manual{ left:50%; top:calc((100% - 100dvh) / 4); transform:translate(-50%,-50%); }
-.scanner:not(.land) .scan-top .title{ visibility:hidden; }
+@media (orientation:portrait){ .scan-top .title{ visibility:hidden; } }
+@media (orientation:landscape){
+  .aperture{ aspect-ratio:2.15/1; height:min(calc(var(--app-h,100dvh) - 90px), calc((100vw - 260px) / 2.15)); }
+  .aperture .status-pill{ left:50%; top:calc(100% + (var(--app-h,100dvh) - 100%) / 4); transform:translate(-50%,-50%); }
+  .aperture .scan-manual{ left:50%; top:calc((100% - var(--app-h,100dvh)) / 4); transform:translate(-50%,-50%); }
+}
 .aperture.lock{ box-shadow:0 0 0 100vmax rgba(0,0,0,.32); }
 .corner{ position:absolute; width:30px; height:30px; border:3px solid #fff; transition:border-color .2s; }
 .aperture.lock .corner{ border-color:var(--green); }
@@ -214,8 +216,10 @@ main{ flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch; width:10
   background:rgba(255,255,255,.16); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); }
 .scan-bottom{ position:absolute; bottom:0; left:0; right:0; z-index:2; display:flex; flex-direction:column; align-items:center;
   gap:16px; padding:0 20px calc(env(safe-area-inset-bottom) + 20px); }
-.scanner.land .scan-top{ bottom:0; right:auto; flex-direction:column; padding:14px 0 14px calc(env(safe-area-inset-left) + 16px); }
-.scanner.land .scan-bottom{ top:0; left:auto; justify-content:center; padding:0 calc(env(safe-area-inset-right) + 20px) 0 0; }
+@media (orientation:landscape){
+  .scan-top{ bottom:0; right:auto; flex-direction:column; padding:14px 0 14px calc(env(safe-area-inset-left) + 16px); }
+  .scan-bottom{ top:0; left:auto; justify-content:center; padding:0 calc(env(safe-area-inset-right) + 20px) 0 0; }
+}
 .status-pill{ color:#fff; font-size:14.5px; font-weight:600; padding:9px 18px; border-radius:22px;
   background:rgba(0,0,0,.45); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); display:inline-flex; align-items:center; gap:8px; }
 .shutter{ width:74px; height:74px; border-radius:50%; border:5px solid rgba(255,255,255,.9); background:rgba(255,255,255,.25); }
@@ -860,12 +864,11 @@ const MOTION_MAX=6.5, SHARP_MIN=7.5, STEADY_HITS=7;
 /* 畫面直立時請使用者橫拿手機（頂端朝左），影像中的支票是轉了 90° 的，送出前要轉正 */
 let scanTall=true;
 function alignMsg(){ return scanTall?'手機橫拿，將支票對齊框內':'將支票對齊框內'; }
+const portraitMQ=matchMedia('(orientation: portrait)');
 function updateScanMode(){
-  const tall=innerHeight>=innerWidth;
+  const tall=portraitMQ.matches;
   if(tall!==scanTall){ scanTall=tall; prevGray=null; steady=0; }
-  document.getElementById('scanner').classList.toggle('land',!scanTall);
 }
-window.addEventListener('resize',()=>{ if(document.getElementById('scanner').classList.contains('show')) updateScanMode(); });
 
 async function openScanner(){
   scanToken++;
@@ -933,6 +936,7 @@ function loop(){
   if(busy) return;
   const v=document.getElementById('video');
   if(!v.videoWidth) return;
+  updateScanMode();   // iPhone 的旋轉事件常常慢半拍，每一格都重新判斷
   // 只分析取景框內的區域（轉正後再算，門檻值兩種拿法通用）
   drawCrop(sctx, v, apertureCrop(v), SAMPLE_W, SAMPLE_H, scanTall);
   const d=sctx.getImageData(0,0,SAMPLE_W,SAMPLE_H).data;
@@ -957,7 +961,7 @@ function loop(){
 }
 
 function capture(){
-  if(busy) return; busy=true; haptic();
+  if(busy) return; busy=true; haptic(); updateScanMode();
   const myToken=scanToken;
   cancelAnimationFrame(rafId);
   const v=document.getElementById('video');
@@ -999,6 +1003,28 @@ document.getElementById('scanClose').onclick=closeScanner;
 document.getElementById('shutter').onclick=capture;
 document.getElementById('scanManual').onclick=()=>{ closeScanner(); openForm(null); };
 document.getElementById('scanErrManual').onclick=()=>{ closeScanner(); openForm(null); };
+
+/* ---------- iPhone 轉向修正 ----------
+   主畫面開啟的 App 轉橫再轉直後，高度／縮放可能卡在橫向的值而破版。
+   偵測到轉向就重量高度、重設 viewport、捲回頂端；iOS 的尺寸會晚一點才更新，所以分幾次補量。 */
+const VIEWPORT=document.querySelector('meta[name=viewport]').getAttribute('content');
+let lastW=innerWidth, rotTimers=[];
+function syncAppHeight(){ document.documentElement.style.setProperty('--app-h', innerHeight+'px'); }
+function onRotate(){
+  rotTimers.forEach(clearTimeout);
+  const vp=document.querySelector('meta[name=viewport]');
+  vp.setAttribute('content', VIEWPORT.replace('maximum-scale=1','maximum-scale=1.01'));
+  const settle=()=>{ vp.setAttribute('content', VIEWPORT); syncAppHeight(); lastW=innerWidth; window.scrollTo(0,0); };
+  rotTimers=[60,300,800].map(ms=>setTimeout(settle,ms));
+}
+syncAppHeight();
+window.addEventListener('orientationchange',onRotate);
+portraitMQ.addEventListener('change',onRotate);
+// 寬度變了＝轉向；只有高度變（Safari 工具列收合）就重量高度，但輸入中不量，避免鍵盤把整頁壓扁
+window.addEventListener('resize',()=>{
+  if(innerWidth!==lastW) onRotate();
+  else if(!document.activeElement||!/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) syncAppHeight();
+});
 
 /* PWA */
 if('serviceWorker' in navigator){ window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{})); }
